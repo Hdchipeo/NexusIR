@@ -1,6 +1,6 @@
 # Project Workflows
 
-This document explains the internal workflows and logic for the core components of the Goku IR Device.
+This document explains the internal workflows and logic for the core components of the NexusIR Device.
 
 ## 1. Infrared (IR) Workflow
 
@@ -30,7 +30,7 @@ This document explains the internal workflows and logic for the core components 
 ### Provisioning (First Time Setup)
 1.  **Boot**: Device checks if Wi-Fi credentials exist in NVS.
 2.  **Missing Credentials**:
-    *   Device starts **SoftAP Mode** with SSID `PROV_GOKU_AC`.
+    *   Device starts **SoftAP Mode** with SSID `NexusIR-Setup-XXXX`.
     *   LED indicates **Provisioning Mode** (Blue Running).
     *   User connects to SoftAP or uses RainMaker App to scan QR code.
 3.  **Handshake**:
@@ -44,7 +44,7 @@ This document explains the internal workflows and logic for the core components 
 1.  **Station Mode**: Device attempts to connect to configured Wi-Fi.
     *   **Success**: LED changes to **Green/Static** (or User Color). Connects to RainMaker MQTT.
     *   **Failure**: If connection fails repeatedly (timeout):
-        *   Device enables **Fallback AP** (`Goku-Recovery`).
+        *   Device enables **Fallback AP** (`NexusIR-Recovery`).
         *   LED indicates **Warning/Provisioning**.
         *   Web UI is accessible via the AP to allow re-configuration.
 
@@ -105,7 +105,7 @@ This document explains the internal workflows and logic for the core components 
 *   **Front-end**: Single Page Application (embedded HTML/CSS/JS string in `app_web.c`).
 
 ### Interaction
-1.  **Access**: User visits `http://gokuac.local`.
+1.  **Access**: User visits `http://nexusir.local`.
 2.  **Load**: Browser downloads the HTML/JS.
 3.  **JS Init**: JavaScript `fetch()` calls `/api/ir/list` to get saved keys.
 4.  **Commands**:

@@ -6,8 +6,10 @@ set(EXTRA_COMPONENT_DIRS
 
 # set(EXCLUDE_COMPONENTS button)
 # set project version
-set(PROJECT_VERSION "1.4.1")
+set(PROJECT_VERSION "1.4.2")
 add_compile_definitions(PROJECT_VERSION=\"${PROJECT_VERSION}\")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(goku-ir-device VERSION ${PROJECT_VERSION})
+project(nexus-ir VERSION ${PROJECT_VERSION})
+
+spiffs_create_partition_image(storage components/svc_web_server/www FLASH_IN_PROJECT)

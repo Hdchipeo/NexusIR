@@ -1,6 +1,6 @@
 # NexusIR Device v1.6.0
 
-**Lamp IR Device** is an Advanced Agentic IoT controller powered by ESP32-C3/S3. It features a fully modular **ESP-NOW Master-Slave Architecture** and acts as an **Apple HomeKit Bridge**, unifying control of Air Conditioners, Fans, Temperature Sensors, and up to 5 independent LED Lamps.
+**NexusIR** is an Advanced Agentic IoT controller powered by ESP32-C3/S3. It features a fully modular **ESP-NOW Master-Slave Architecture** and acts as an **Apple HomeKit Bridge**, unifying control of Air Conditioners, Fans, Temperature Sensors, and up to 5 independent LED Lamps.
 
 ## Documentation
 

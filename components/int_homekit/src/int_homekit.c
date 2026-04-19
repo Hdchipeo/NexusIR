@@ -455,8 +455,8 @@ esp_err_t int_homekit_init(void) {
   // 2. Create BRIDGE Accessory (Primary)
   // -------------------------------------------------------------------------
   hap_acc_cfg_t bridge_cfg = {
-      .name = "Lamp Bridge",
-      .manufacturer = "Lamp Inc",
+      .name = "NexusIR Bridge",
+      .manufacturer = "NexusIR Inc",
       .model = "LP-BRIDGE-01",
       .serial_num = "001122334400",
       .fw_rev = "1.3.0",
@@ -485,8 +485,8 @@ esp_err_t int_homekit_init(void) {
 #endif
   // -------------------------------------------------------------------------
   hap_acc_cfg_t ac_cfg = {
-      .name = "Lamp AC",
-      .manufacturer = "Lamp Inc",
+      .name = "NexusIR AC",
+      .manufacturer = "NexusIR Inc",
       .model = "LP-IR-01",
       .serial_num = "001122334488",
       .fw_rev = "1.3.0",
@@ -534,7 +534,7 @@ esp_err_t int_homekit_init(void) {
 #endif
 
     // Add AC as Bridged Accessory
-    hap_add_bridged_accessory(ac_acc, hap_get_unique_aid("Lamp AC"));
+    hap_add_bridged_accessory(ac_acc, hap_get_unique_aid("NexusIR AC"));
     ESP_LOGI(TAG, "Added Bridged AC Accessory");
   }
 
@@ -603,7 +603,7 @@ esp_err_t int_homekit_init(void) {
     char serial[32]; snprintf(serial, sizeof(serial), "LED-%02d", i);
     hap_acc_cfg_t led_cfg = {
         .name = (char*)led_names[i],
-        .manufacturer = "Lamp Inc",
+        .manufacturer = "NexusIR Inc",
         .model = "LP-LED-01",
         .serial_num = serial,
         .fw_rev = "1.0.0",
@@ -646,7 +646,7 @@ esp_err_t int_homekit_init(void) {
   // -------------------------------------------------------------------------
   hap_acc_cfg_t web_cfg = {
       .name = "Web Config",
-      .manufacturer = "Lamp Inc",
+      .manufacturer = "NexusIR Inc",
       .model = "LP-WEB-01",
       .serial_num = "001122334499",
       .fw_rev = "1.0.0",
@@ -679,8 +679,8 @@ esp_err_t int_homekit_init(void) {
   // Create Fan Accessory (Bridged)
   // -------------------------------------------------------------------------
   hap_acc_cfg_t fan_cfg = {
-      .name = "Lamp Fan",
-      .manufacturer = "Lamp Inc",
+      .name = "NexusIR Fan",
+      .manufacturer = "NexusIR Inc",
       .model = "LP-FAN-01",
       .serial_num = "001122334466",
       .fw_rev = "1.0.0",
@@ -708,7 +708,7 @@ esp_err_t int_homekit_init(void) {
       hap_serv_set_write_cb(s_fan_service, fan_write);
       hap_acc_add_serv(fan_acc, s_fan_service);
 
-      hap_add_bridged_accessory(fan_acc, hap_get_unique_aid("Lamp Fan"));
+      hap_add_bridged_accessory(fan_acc, hap_get_unique_aid("NexusIR Fan"));
       ESP_LOGI(TAG, "Added Bridged Fan Accessory");
     }
   }

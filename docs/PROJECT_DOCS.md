@@ -1,4 +1,4 @@
-# Lamp IR Device - Project Documentation
+# NexusIR - Project Documentation
 
 ## 1. PROJECT OVERVIEW
 
