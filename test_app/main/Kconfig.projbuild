@@ -1,0 +1,67 @@
+menu "Hardware Configuration"
+
+    config APP_LED_CONTROL
+        bool "Enable LED Control (WS2812B)"
+        default n
+        help
+            Enable support for WS2812B LED control (Web UI & RainMaker).
+            If disabled, LED driver and related APIs will not be compiled.
+
+    config APP_LED_GPIO
+        int "LED GPIO"
+        default 2
+        help
+            GPIO number for the RGB LED (WS2812B).
+
+    config APP_BUTTON_GPIO
+        int "Button GPIO"
+        default 3
+        help
+            GPIO number for the onboard button.
+
+    config APP_BUTTON_ACTIVE_LEVEL
+        int "Button Active Level"
+        default 0
+        range 0 1
+        help
+            0: Active Low, 1: Active High.
+
+    config APP_IR_TX_GPIO
+        int "IR Transmitter GPIO"
+        default 8
+        help
+            GPIO number for the IR Transmitter LED.
+
+    config APP_IR_RX_GPIO
+        int "IR Receiver GPIO"
+        default 9
+        help
+            GPIO number for the IR Receiver Module.
+
+endmenu
+
+menu "Sensors"
+
+    config LAMP_SENSOR_AHT20
+        bool "Enable AHT20 Temperature & Humidity Sensor"
+        default n
+        help
+            Enable support for AHT20 sensor.
+            Adds sensor readings to RainMaker, HomeKit, and Web UI.
+            Requires I2C connection.
+
+    config APP_I2C_SDA
+        int "I2C SDA GPIO"
+        default 6
+        depends on LAMP_SENSOR_AHT20
+        help
+            GPIO number for I2C SDA line.
+
+    config APP_I2C_SCL
+        int "I2C SCL GPIO"
+        default 5
+        depends on LAMP_SENSOR_AHT20
+        help
+            GPIO number for I2C SCL line.
+
+endmenu

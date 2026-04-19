@@ -481,7 +481,7 @@ menu "WiFi Configuration"
 
     config APP_WIFI_FALLBACK_SSID
         string "Fallback AP SSID"
-        default "Lamp-Recovery"
+        default "NexusIR-Recovery"
 
     config APP_WIFI_FALLBACK_PASSWORD
         string "Fallback AP Password"
@@ -516,7 +516,7 @@ menu "iOS WiFi Provisioning"
 
     config IOS_WIFI_AP_SSID_PREFIX
         string "SoftAP SSID Prefix"
-        default "Lamp-Setup"
+        default "NexusIR-Setup"
         depends on IOS_WIFI_PROV_AP_ENABLE
 
     config IOS_WIFI_AP_PASSWORD
