@@ -1,200 +1,539 @@
-menu "Hardware Configuration"
+# =============================================================================
+# Device Configuration — Per-device ESP-NOW mode + hardware config
+# =============================================================================
+menu "Device Configuration"
 
-    config APP_LED_CONTROL
-        bool "Enable LED Control (WS2812B)"
-        default n
-        help
-            Enable support for WS2812B LED control (Web UI & RainMaker).
-            If disabled, LED driver and related APIs will not be compiled.
+    menu "AC (Air Conditioner)"
+        choice APP_ESPNOW_AC_MODE
+            prompt "AC ESP-NOW Mode"
+            default APP_ESPNOW_AC_DISABLED
+            help
+                Master: Send AC commands to slave nodes (no local IR needed).
+                Slave:  Receive AC commands from master and send IR locally.
+                Standalone: AC works locally, no ESP-NOW sync.
+                Disabled: Hide from HomeKit, do not initialize.
 
-    config APP_LED_GPIO
-        int "LED GPIO"
-        default 2
-        help
-            GPIO number for the RGB LED (WS2812B).
+            config APP_ESPNOW_AC_MASTER
+                bool "Master"
+            config APP_ESPNOW_AC_SLAVE
+                bool "Slave"
+            config APP_ESPNOW_AC_STANDALONE
+                bool "Standalone"
+            config APP_ESPNOW_AC_DISABLED
+                bool "Disabled"
+        endchoice
+
+        config APP_ESPNOW_AC_MAC
+            string "AC Slave MAC Address"
+            default "FF:FF:FF:FF:FF:FF"
+            depends on APP_ESPNOW_AC_MASTER
+            help
+                The MAC address of the slave device to send AC commands to.
+                Format: XX:XX:XX:XX:XX:XX
+    endmenu
+
+    menu "Fan"
+        choice APP_ESPNOW_FAN_MODE
+            prompt "Fan ESP-NOW Mode"
+            default APP_ESPNOW_FAN_DISABLED
+            help
+                Master: Send Fan commands to slave nodes (no local IR needed).
+                Slave:  Receive Fan commands from master and send IR locally.
+                Standalone: Fan works locally, no ESP-NOW sync.
+                Disabled: Hide from HomeKit, do not initialize.
+
+            config APP_ESPNOW_FAN_MASTER
+                bool "Master"
+            config APP_ESPNOW_FAN_SLAVE
+                bool "Slave"
+            config APP_ESPNOW_FAN_STANDALONE
+                bool "Standalone"
+            config APP_ESPNOW_FAN_DISABLED
+                bool "Disabled"
+        endchoice
+
+        config APP_ESPNOW_FAN_MAC
+            string "Fan Slave MAC Address"
+            default "FF:FF:FF:FF:FF:FF"
+            depends on APP_ESPNOW_FAN_MASTER
+            help
+                The MAC address of the slave device to send Fan commands to.
+                Format: XX:XX:XX:XX:XX:XX
+    endmenu
+
+    menu "Temperature & Humidity Sensor"
+        choice APP_ESPNOW_TEMP_MODE
+            prompt "Temp Sensor ESP-NOW Mode"
+            default APP_ESPNOW_TEMP_DISABLED
+            help
+                Master: Receive sensor data from slave (no local sensor needed).
+                Slave:  Read local sensor and send data to master.
+                Standalone: Sensor works locally, no ESP-NOW sync.
+                Disabled: Hide from HomeKit, do not initialize.
+
+            config APP_ESPNOW_TEMP_MASTER
+                bool "Master"
+            config APP_ESPNOW_TEMP_SLAVE
+                bool "Slave"
+            config APP_ESPNOW_TEMP_STANDALONE
+                bool "Standalone"
+            config APP_ESPNOW_TEMP_DISABLED
+                bool "Disabled"
+        endchoice
+
+        config APP_ESPNOW_TEMP_MAC
+            string "Temp Sensor Slave MAC Address (If any targeted logic)"
+            default "FF:FF:FF:FF:FF:FF"
+            depends on APP_ESPNOW_TEMP_MASTER
+            help
+                The MAC address of the slave device if you need to poll or send commands.
+                (Currently Temp Slave broadcasts, so this might not be strictly used).
+
+        config LAMP_SENSOR_AHT20
+            bool "Enable AHT20 Sensor Hardware"
+            default y
+            depends on APP_ESPNOW_TEMP_SLAVE || APP_ESPNOW_TEMP_STANDALONE
+            help
+                Enable local AHT20 temperature & humidity sensor.
+                Not needed when Temp is in Master mode (receives from slave).
+
+        config APP_I2C_SDA
+            int "I2C SDA GPIO"
+            default 6
+            depends on LAMP_SENSOR_AHT20
+            help
+                GPIO number for I2C SDA line.
+
+        config APP_I2C_SCL
+            int "I2C SCL GPIO"
+            default 5
+            depends on LAMP_SENSOR_AHT20
+            help
+                GPIO number for I2C SCL line.
+    endmenu
+
+    # --- LED Lamp 1 ---
+    menu "LED Lamp 1"
+        choice APP_ESPNOW_LED1_MODE
+            prompt "LED 1 ESP-NOW Mode"
+            default APP_ESPNOW_LED1_MASTER
+
+            config APP_ESPNOW_LED1_MASTER
+                bool "Master"
+            config APP_ESPNOW_LED1_SLAVE
+                bool "Slave"
+            config APP_ESPNOW_LED1_STANDALONE
+                bool "Standalone"
+            config APP_ESPNOW_LED1_DISABLED
+                bool "Disabled"
+        endchoice
+
+        config APP_LED1_NAME
+            string "LED 1 Custom Name"
+            default "Lamp 1"
+            depends on !APP_ESPNOW_LED1_DISABLED
+
+        config APP_ESPNOW_LED1_MAC
+            string "LED 1 Slave MAC Address"
+            default "FF:FF:FF:FF:FF:FF"
+            depends on APP_ESPNOW_LED1_MASTER
+            help
+                The MAC address of the LED 1 slave device to send commands to.
+                Format: XX:XX:XX:XX:XX:XX
+
+        config APP_LED1_CONTROL
+            bool "Enable LED 1 Hardware"
+            default y
+            depends on APP_ESPNOW_LED1_SLAVE || APP_ESPNOW_LED1_STANDALONE
+
+        choice APP_LED1_TYPE
+            prompt "LED 1 Type"
+            default APP_LED1_TYPE_RGB_STRIP
+            depends on APP_LED1_CONTROL
+
+            config APP_LED1_TYPE_RGB_STRIP
+                bool "RGB LED Strip (WS2812B/Addressable)"
+            config APP_LED1_TYPE_SINGLE
+                bool "Single LED (PWM/GPIO)"
+        endchoice
+
+        config APP_LED1_COUNT
+            int "Number of LEDs (Lamp 1)"
+            default 8
+            depends on APP_LED1_CONTROL && APP_LED1_TYPE_RGB_STRIP
+
+        config APP_LED1_GPIO
+            int "LED 1 GPIO"
+            default 2
+            depends on APP_LED1_CONTROL
+    endmenu
+
+    # --- LED Lamp 2 ---
+    menu "LED Lamp 2"
+        choice APP_ESPNOW_LED2_MODE
+            prompt "LED 2 ESP-NOW Mode"
+            default APP_ESPNOW_LED2_DISABLED
+
+            config APP_ESPNOW_LED2_MASTER
+                bool "Master"
+            config APP_ESPNOW_LED2_SLAVE
+                bool "Slave"
+            config APP_ESPNOW_LED2_STANDALONE
+                bool "Standalone"
+            config APP_ESPNOW_LED2_DISABLED
+                bool "Disabled"
+        endchoice
+
+        config APP_LED2_NAME
+            string "LED 2 Custom Name"
+            default "Lamp 2"
+            depends on !APP_ESPNOW_LED2_DISABLED
+
+        config APP_ESPNOW_LED2_MAC
+            string "LED 2 Slave MAC Address"
+            default "FF:FF:FF:FF:FF:FF"
+            depends on APP_ESPNOW_LED2_MASTER
+            help
+                The MAC address of the LED 2 slave device to send commands to.
+                Format: XX:XX:XX:XX:XX:XX
+
+        config APP_LED2_CONTROL
+            bool "Enable LED 2 Hardware"
+            default y
+            depends on APP_ESPNOW_LED2_SLAVE || APP_ESPNOW_LED2_STANDALONE
+
+        choice APP_LED2_TYPE
+            prompt "LED 2 Type"
+            default APP_LED2_TYPE_RGB_STRIP
+            depends on APP_LED2_CONTROL
+
+            config APP_LED2_TYPE_RGB_STRIP
+                bool "RGB LED Strip (WS2812B/Addressable)"
+            config APP_LED2_TYPE_SINGLE
+                bool "Single LED (PWM/GPIO)"
+        endchoice
+
+        config APP_LED2_COUNT
+            int "Number of LEDs (Lamp 2)"
+            default 8
+            depends on APP_LED2_CONTROL && APP_LED2_TYPE_RGB_STRIP
+
+        config APP_LED2_GPIO
+            int "LED 2 GPIO"
+            default 8
+            depends on APP_LED2_CONTROL
+    endmenu
+
+    # --- LED Lamp 3 ---
+    menu "LED Lamp 3"
+        choice APP_ESPNOW_LED3_MODE
+            prompt "LED 3 ESP-NOW Mode"
+            default APP_ESPNOW_LED3_DISABLED
+
+            config APP_ESPNOW_LED3_MASTER
+                bool "Master"
+            config APP_ESPNOW_LED3_SLAVE
+                bool "Slave"
+            config APP_ESPNOW_LED3_STANDALONE
+                bool "Standalone"
+            config APP_ESPNOW_LED3_DISABLED
+                bool "Disabled"
+        endchoice
+
+        config APP_LED3_NAME
+            string "LED 3 Custom Name"
+            default "Lamp 3"
+            depends on !APP_ESPNOW_LED3_DISABLED
+
+        config APP_ESPNOW_LED3_MAC
+            string "LED 3 Slave MAC Address"
+            default "FF:FF:FF:FF:FF:FF"
+            depends on APP_ESPNOW_LED3_MASTER
+            help
+                The MAC address of the LED 3 slave device to send commands to.
+                Format: XX:XX:XX:XX:XX:XX
+
+        config APP_LED3_CONTROL
+            bool "Enable LED 3 Hardware"
+            default y
+            depends on APP_ESPNOW_LED3_SLAVE || APP_ESPNOW_LED3_STANDALONE
+
+        choice APP_LED3_TYPE
+            prompt "LED 3 Type"
+            default APP_LED3_TYPE_RGB_STRIP
+            depends on APP_LED3_CONTROL
+
+            config APP_LED3_TYPE_RGB_STRIP
+                bool "RGB LED Strip (WS2812B/Addressable)"
+            config APP_LED3_TYPE_SINGLE
+                bool "Single LED (PWM/GPIO)"
+        endchoice
+
+        config APP_LED3_COUNT
+            int "Number of LEDs (Lamp 3)"
+            default 8
+            depends on APP_LED3_CONTROL && APP_LED3_TYPE_RGB_STRIP
+
+        config APP_LED3_GPIO
+            int "LED 3 GPIO"
+            default 9
+            depends on APP_LED3_CONTROL
+    endmenu
+
+    # --- LED Lamp 4 ---
+    menu "LED Lamp 4"
+        choice APP_ESPNOW_LED4_MODE
+            prompt "LED 4 ESP-NOW Mode"
+            default APP_ESPNOW_LED4_DISABLED
+
+            config APP_ESPNOW_LED4_MASTER
+                bool "Master"
+            config APP_ESPNOW_LED4_SLAVE
+                bool "Slave"
+            config APP_ESPNOW_LED4_STANDALONE
+                bool "Standalone"
+            config APP_ESPNOW_LED4_DISABLED
+                bool "Disabled"
+        endchoice
+
+        config APP_LED4_NAME
+            string "LED 4 Custom Name"
+            default "Lamp 4"
+            depends on !APP_ESPNOW_LED4_DISABLED
+
+        config APP_ESPNOW_LED4_MAC
+            string "LED 4 Slave MAC Address"
+            default "FF:FF:FF:FF:FF:FF"
+            depends on APP_ESPNOW_LED4_MASTER
+            help
+                The MAC address of the LED 4 slave device to send commands to.
+                Format: XX:XX:XX:XX:XX:XX
+
+        config APP_LED4_CONTROL
+            bool "Enable LED 4 Hardware"
+            default y
+            depends on APP_ESPNOW_LED4_SLAVE || APP_ESPNOW_LED4_STANDALONE
+
+        choice APP_LED4_TYPE
+            prompt "LED 4 Type"
+            default APP_LED4_TYPE_RGB_STRIP
+            depends on APP_LED4_CONTROL
+
+            config APP_LED4_TYPE_RGB_STRIP
+                bool "RGB LED Strip (WS2812B/Addressable)"
+            config APP_LED4_TYPE_SINGLE
+                bool "Single LED (PWM/GPIO)"
+        endchoice
+
+        config APP_LED4_COUNT
+            int "Number of LEDs (Lamp 4)"
+            default 8
+            depends on APP_LED4_CONTROL && APP_LED4_TYPE_RGB_STRIP
+
+        config APP_LED4_GPIO
+            int "LED 4 GPIO"
+            default 10
+            depends on APP_LED4_CONTROL
+    endmenu
+
+    # --- LED Lamp 5 ---
+    menu "LED Lamp 5"
+        choice APP_ESPNOW_LED5_MODE
+            prompt "LED 5 ESP-NOW Mode"
+            default APP_ESPNOW_LED5_DISABLED
+
+            config APP_ESPNOW_LED5_MASTER
+                bool "Master"
+            config APP_ESPNOW_LED5_SLAVE
+                bool "Slave"
+            config APP_ESPNOW_LED5_STANDALONE
+                bool "Standalone"
+            config APP_ESPNOW_LED5_DISABLED
+                bool "Disabled"
+        endchoice
+
+        config APP_LED5_NAME
+            string "LED 5 Custom Name"
+            default "Lamp 5"
+            depends on !APP_ESPNOW_LED5_DISABLED
+
+        config APP_ESPNOW_LED5_MAC
+            string "LED 5 Slave MAC Address"
+            default "FF:FF:FF:FF:FF:FF"
+            depends on APP_ESPNOW_LED5_MASTER
+            help
+                The MAC address of the LED 5 slave device to send commands to.
+                Format: XX:XX:XX:XX:XX:XX
+
+        config APP_LED5_CONTROL
+            bool "Enable LED 5 Hardware"
+            default y
+            depends on APP_ESPNOW_LED5_SLAVE || APP_ESPNOW_LED5_STANDALONE
+
+        choice APP_LED5_TYPE
+            prompt "LED 5 Type"
+            default APP_LED5_TYPE_RGB_STRIP
+            depends on APP_LED5_CONTROL
+
+            config APP_LED5_TYPE_RGB_STRIP
+                bool "RGB LED Strip (WS2812B/Addressable)"
+            config APP_LED5_TYPE_SINGLE
+                bool "Single LED (PWM/GPIO)"
+        endchoice
+
+        config APP_LED5_COUNT
+            int "Number of LEDs (Lamp 5)"
+            default 8
+            depends on APP_LED5_CONTROL && APP_LED5_TYPE_RGB_STRIP
+
+        config APP_LED5_GPIO
+            int "LED 5 GPIO"
+            default 18
+            depends on APP_LED5_CONTROL
+    endmenu
+
+
+    menu "IR Hardware"
+        depends on APP_ESPNOW_AC_SLAVE || APP_ESPNOW_AC_STANDALONE || APP_ESPNOW_FAN_SLAVE || APP_ESPNOW_FAN_STANDALONE
+        comment "IR GPIOs needed when AC or Fan is Slave/Standalone"
+
+        config APP_IR_TX_GPIO
+            int "IR Transmitter GPIO"
+            default 4
+
+        config APP_IR_RX_GPIO
+            int "IR Receiver GPIO"
+            default 7
+    endmenu
 
     config APP_BUTTON_GPIO
         int "Button GPIO"
         default 3
-        help
-            GPIO number for the onboard button.
 
     config APP_BUTTON_ACTIVE_LEVEL
         int "Button Active Level"
         default 0
         range 0 1
-        help
-            0: Active Low, 1: Active High.
-
-    config APP_IR_TX_GPIO
-        int "IR Transmitter GPIO"
-        default 8
-        help
-            GPIO number for the IR Transmitter LED.
-
-    config APP_IR_RX_GPIO
-        int "IR Receiver GPIO"
-        default 9
-        help
-            GPIO number for the IR Receiver Module.
 
 endmenu
 
+# =============================================================================
+# ESP-NOW Auto-Computed Flags & Peer Config
+# =============================================================================
+menu "ESP-NOW Configuration"
 
-menu "Sensors"
+    config APP_ESPNOW_BRIDGE_ENABLE
+        bool
+        default y if APP_ESPNOW_AC_MASTER || APP_ESPNOW_FAN_MASTER || APP_ESPNOW_TEMP_SLAVE || APP_ESPNOW_LED1_MASTER || APP_ESPNOW_LED2_MASTER || APP_ESPNOW_LED3_MASTER || APP_ESPNOW_LED4_MASTER || APP_ESPNOW_LED5_MASTER
 
-    config GOKU_SENSOR_AHT20
-        bool "Enable AHT20 Temperature & Humidity Sensor"
-        default n
-        help
-            Enable support for AHT20 sensor.
-            Adds sensor readings to RainMaker, HomeKit, and Web UI.
-            Requires I2C connection.
+    config APP_ESPNOW_SLAVE_ENABLE
+        bool
+        default y if APP_ESPNOW_AC_SLAVE || APP_ESPNOW_FAN_SLAVE || APP_ESPNOW_TEMP_MASTER || APP_ESPNOW_LED1_SLAVE || APP_ESPNOW_LED2_SLAVE || APP_ESPNOW_LED3_SLAVE || APP_ESPNOW_LED4_SLAVE || APP_ESPNOW_LED5_SLAVE
 
-    config APP_I2C_SDA
-        int "I2C SDA GPIO"
-        default 6
-        depends on GOKU_SENSOR_AHT20
-        help
-            GPIO number for I2C SDA line.
-
-    config APP_I2C_SCL
-        int "I2C SCL GPIO"
-        default 5
-        depends on GOKU_SENSOR_AHT20
-        help
-            GPIO number for I2C SCL line.
+    config APP_ESPNOW_PEER_MAC
+        string "Peer device MAC Address"
+        default "FF:FF:FF:FF:FF:FF"
+        depends on APP_ESPNOW_BRIDGE_ENABLE || APP_ESPNOW_SLAVE_ENABLE
 
 endmenu
 
+# =============================================================================
+# Mobile Platform
+# =============================================================================
 menu "Mobile Platform"
 
-    choice GOKU_MOBILE_PLATFORM
+    choice LAMP_MOBILE_PLATFORM
         prompt "Platform Selection"
-        default GOKU_PLATFORM_ANDROID
-        help
-            Select the target mobile platform ecosystem.
-            This selection is MUTUALLY EXCLUSIVE.
+        default LAMP_PLATFORM_IOS
 
-        config GOKU_PLATFORM_ANDROID
+        config LAMP_PLATFORM_ANDROID
             bool "Android (ESP RainMaker)"
-            select ESP_RAINMAKER_ENABLE     # Virtual logic flag if needed
-            help
-                Build for Android. Enables ESP RainMaker cloud provisioning
-                and control. Disables HomeKit.
+            select ESP_RAINMAKER_ENABLE
 
-        config GOKU_PLATFORM_IOS
+        config LAMP_PLATFORM_IOS
             bool "iOS (Apple HomeKit)"
-            help
-                Build for iOS. Enables Apple HomeKit Accessory integration.
-                Disables RainMaker.
     endchoice
 
 endmenu
 
+# =============================================================================
+# WiFi Configuration
+# =============================================================================
 menu "WiFi Configuration"
 
     choice APP_PROV_TRANSPORT_METHOD
         prompt "Provisioning Transport Method"
         default APP_WIFI_PROV_TRANSPORT_SOFTAP
-        help
-            Select the transport method for Wi-Fi provisioning.
 
         config APP_WIFI_PROV_TRANSPORT_SOFTAP
             bool "SoftAP"
-            help
-                Use SoftAP for provisioning.
-
         config APP_WIFI_PROV_TRANSPORT_BLE
             bool "BLE"
-            help
-                Use BLE for provisioning (requires Bluetooth enabled in sdkconfig).
     endchoice
 
     config APP_PROV_SERVICE_NAME
         string "Provisioning Service Name"
-        default "PROV_GOKU_IR"
-        help
-            Name of the BLE/SoftAP provisioning service.
+        default "PROV_LAMP_IR"
 
     config APP_PROV_POP
         string "Proof of Possession (PoP)"
         default "12345678"
-        help
-            Password for provisioning.
 
     config APP_WIFI_FALLBACK_SSID
         string "Fallback AP SSID"
-        default "Goku-Recovery"
-        help
-            SSID for the fallback Access Point.
+        default "Lamp-Recovery"
 
     config APP_WIFI_FALLBACK_PASSWORD
         string "Fallback AP Password"
         default "12345678"
-        help
-            Password for the fallback Access Point. Leave empty for Open.
 
 endmenu
 
+# =============================================================================
+# OTA Configuration
+# =============================================================================
 menu "OTA Configuration"
 
     config OTA_SERVER_URL
         string "OTA Server URL"
         default "https://salty-mouth.surge.sh"
-        help
-            Base URL for the OTA server (e.g. https://tunnel.trycloudflare.com).
-            The device will look for version.txt and goku-ir-device.bin at this URL.
 
     config OTA_CHECK_INTERVAL
         int "OTA Check Interval (seconds)"
         default 3600
-        help
-            How often to check for updates in seconds.
 
 endmenu
 
+# =============================================================================
+# iOS WiFi Provisioning
+# =============================================================================
 menu "iOS WiFi Provisioning"
-    depends on GOKU_PLATFORM_IOS
-    
+    depends on LAMP_PLATFORM_IOS
+
     config IOS_WIFI_PROV_AP_ENABLE
         bool "Enable SoftAP WiFi Provisioning for iOS"
         default y
-        help
-            Enable captive portal provisioning via SoftAP for iOS devices.
-            When enabled, device will start a temporary WiFi Access Point
-            on first boot or when no WiFi credentials are stored.
-            
+
     config IOS_WIFI_AP_SSID_PREFIX
         string "SoftAP SSID Prefix"
-        default "Goku-Setup"
+        default "Lamp-Setup"
         depends on IOS_WIFI_PROV_AP_ENABLE
-        help
-            Prefix for the temporary WiFi AP name.
-            Full SSID will be: PREFIX-MACADDR (e.g., Goku-Setup-ABCD)
-            
+
     config IOS_WIFI_AP_PASSWORD
-        string "SoftAP Password (leave empty for open network)"
+        string "SoftAP Password (leave empty for open)"
         default ""
         depends on IOS_WIFI_PROV_AP_ENABLE
-        help
-            Password for the temporary WiFi AP.
-            Leave empty for an open network (recommended for easy setup).
-            
+
     config IOS_WIFI_AP_CHANNEL
         int "SoftAP WiFi Channel"
         default 1
         range 1 13
         depends on IOS_WIFI_PROV_AP_ENABLE
-        help
-            WiFi channel for the temporary AP (1-13).
-            
+
     config IOS_WIFI_AP_MAX_CONNECTIONS
         int "Maximum SoftAP Connections"
         default 4
         range 1 10
         depends on IOS_WIFI_PROV_AP_ENABLE
-        help
-            Maximum number of devices that can connect to the AP simultaneously.
 
 endmenu

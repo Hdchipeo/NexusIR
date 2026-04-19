@@ -9,19 +9,19 @@ This document explains the internal workflows and logic for the core components 
 2.  **State Change**: LED changes to **Yellow/Blink**.
 3.  **RX Task**: The RMT Receiver channel is enabled and waits for signals.
 4.  **Capture**: When an IR signal is detected, the RMT interrupt captures the pulse train into a buffer.
-5.  **Save**: User calls "Save" via Web UI (or automatic if implemented).
-    *   The captured symbols are serialized.
-    *   Data is written to **NVS** (Non-Volatile Storage) under a specific key (e.g., `ac_on`).
-6.  **Idle**: System returns to Idle state (LED Static).
+5.  **Save**: User calls "Save" via Web UI, storing it under a custom brand (e.g. `Fan1`).
+    *   The captured symbols are serialized and written to **NVS**.
+6.  **Idle**: System returns to Idle state.
 
-### Sending Mode
-1.  **Trigger**: RainMaker App command (e.g., Turn ON) or Web UI click.
-2.  **Lookup**: The application searches NVS for the corresponding key (e.g., `ac_on`).
-3.  **Load**: If found, the pulse data (symbols) is loaded into RAM.
+### Sending Mode (ESP-NOW Master-Slave)
+1.  **Trigger**: HomeKit App command (e.g., Turn AC/Fan ON) triggers the Master node.
+2.  **Broadcast**: Master node sends the state (power, mode, temp/speed) via ESP-NOW to the specific Slave MAC address configured in `menuconfig`.
+3.  **Slave Translation**:
+    *   The Slave node receives the ESP-NOW packet.
+    *   It looks up the configured `brand` in its local NVS.
+    *   If found, the pulse data (symbols) is loaded into RAM.
 4.  **Transmission**:
-    *   LED changes to **Red/Flash**.
-    *   RMT Transmitter channel sends the carrier-modulated signal (38kHz) to the IR LED.
-5.  **Completion**: LED returns to Idle state.
+    *   RMT Transmitter channel on the Slave sends the carrier-modulated signal (38kHz) to the IR LED.
 
 ---
 
@@ -70,31 +70,31 @@ This document explains the internal workflows and logic for the core components 
 
 ---
 
-## 4. ESP RainMaker Workflow
+## 4. Apple HomeKit Workflow (Bridge Mode)
 
 ### Initialization
-1.  **Node Init**: Application initializes a RainMaker Node.
-2.  **Device Creation**: Creates a virtual "Air Conditioner" device.
-3.  **Param Registration**: Adds parameters:
-    *   `Power` (Bool)
-    *   `Mode` (Int/String: Auto, Cool, Heat, etc.)
-    *   `Temperature` (Float)
-4.  **Callback Register**: Registers a callback function for param updates.
+1.  **HAP Init**: Application initializes the HomeKit Accessory Protocol (HAP) over Wi-Fi.
+2.  **Bridge Creation**: A single HomeKit Bridge accessory is created.
+3.  **Dynamic Accessories**: Based on `menuconfig`, bridged accessories are instantiated:
+    *   **Thermostat**: For AC control.
+    *   **Fan v2**: For Fan control.
+    *   **Lightbulbs (1-5)**: For each enabled LED Lamp.
+    *   **Temperature Sensor**: For AHT20 sensor data.
+4.  **State Restoration**: Reads the last known state from NVS and populates HomeKit characteristics *before* starting the HAP server.
 
 ### Cloud to Device (Control)
-1.  **User**: Toggles "Power On" in Phone App.
-2.  **Cloud**: AWS IoT / RainMaker Cloud sends MQTT message to device.
-3.  **Device**:
-    *   Receives MQTT payload.
-    *   Triggers `write_cb`.
-    *   Code executes the logic (e.g., calls `app_ir_send_cmd(AC_ON)`).
-    *   Updates local value and reports it back to Cloud (ACK).
+1.  **User**: Toggles "Power On" in Apple Home App.
+2.  **HAP Server**: Triggers the `write_cb` (e.g. `led_write`, `fan_write`, `ac_write`).
+3.  **Device Logic**:
+    *   Code updates the state locally.
+    *   If Master, it bridges the command via ESP-NOW to the specific Slave's MAC address.
+    *   If Standalone, it handles the hardware directly (e.g. PWM LED or IR send).
+    *   Saves new state to NVS.
 
 ### Device to Cloud (State Update)
-1.  **Event**: OTA update finishes or Local Web Control changes state.
-2.  **Report**: Device calls `esp_rmaker_param_update_and_report()`.
-3.  **Cloud**: Updates shadow state.
-4.  **App**: UI reflects the new state.
+1.  **Event**: ESP-NOW Slave sends sensor data, or Web UI changes a state locally.
+2.  **Report**: Device calls `hap_char_update_val()` to notify Apple HomeKit of the change.
+3.  **App**: UI immediately reflects the new state.
 
 ---
 

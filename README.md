@@ -1,47 +1,39 @@
 # NexusIR Device v1.6.0
 
-**Goku IR Device** is an Advanced Agentic IoT controller powered by ESP32-C3/S3. It transforms standard Air Conditioners into smart devices, controllable via **ESP RainMaker** (Android), **Apple HomeKit** (iOS), Voice Assistants, and a local Web Interface.
+**Lamp IR Device** is an Advanced Agentic IoT controller powered by ESP32-C3/S3. It features a fully modular **ESP-NOW Master-Slave Architecture** and acts as an **Apple HomeKit Bridge**, unifying control of Air Conditioners, Fans, Temperature Sensors, and up to 5 independent LED Lamps.
 
-## 🚀 What's New in v1.4.x
+## Documentation
 
-*   **Dual Platform Support**: Android (RainMaker) and iOS (HomeKit) with selectable configuration.
-*   **HomeKit Integration**: Native Apple Home app control with Thermostat, Temperature/Humidity sensors.
-*   **AHT20 Sensor Support**: Optional temperature and humidity monitoring (configurable via menuconfig).
-*   **Captive Portal**: iOS SoftAP provisioning with auto-popup trigger (DHCP Option 114).
-*   **Sensor Display Fix**: Temperature/humidity rounded to 1 decimal place for cleaner display.
-*   **State Restore**: AC state automatically restored in RainMaker/HomeKit after reboot.
-*   **Log Optimization**: Reduced console spam from RainMaker parameter updates.
-*   **ESP32-S3 PSRAM Fix**: Proper memory monitoring for PSRAM-enabled boards.
+For comprehensive technical documentation, including architecture, hardware design, and API details, please refer to [Project Documentation](docs/PROJECT_DOCS.md) and [Workflow](WORKFLOW.md).
+
+## 🚀 What's New in v1.5.x
+
+*   **ESP-NOW Modular Architecture**: Configure any device (AC, Fan, Temp, LEDs) as Master, Slave, Standalone, or Disabled.
+*   **Multi-Lamp Support**: Natively control up to 5 independent LED lamps (WS2812B or PWM) via HomeKit and ESP-NOW.
+*   **Per-Device MAC Addressing**: Assign specific ESP-NOW Slave MAC addresses for targeted control of each device.
+*   **HomeKit Bridge**: Automatically instantiates Bridged Accessories for enabled devices, displaying custom names defined in `menuconfig`.
+*   **Dynamic Hardware Allocation**: Disabled devices bypass hardware initialization, saving RAM and GPIO pins.
+*   **Fan IR Protocol Support**: Added robust learning and transmission for custom Fan brands.
 
 ---
 
-## 🌟 Key Features
+### 🎮 Smart HomeKit Bridge
+*   **Unified Control**: Bridges local ESP-NOW Slaves into a single HomeKit interface.
+*   **Universal AC & Fan Engine**: Built-in support for major brands + Custom Learning via RMT.
+*   **Local Web Interface**: Access advanced configurations, view IR Dashboards, and manage Wi-Fi via `http://lampac.local`.
 
-### 🎮 Smart Control
-*   **Dual Platform**:
-    *   **Android**: ESP RainMaker cloud control via iOS/Android App.
-    *   **iOS**: Native HomeKit integration via Apple Home app.
-*   **Universal AC Engine**: Built-in support for major brands (Daikin, Samsung, Mitsubishi, Panasonic, LG) + Custom Learning.
-*   **Local Web Interface** (when enabled):
-    *   Advanced Configuration & Stats.
-    *   IR Learning Dashboard.
-    *   LED Effect Customization.
+### ⚡ ESP-NOW Master/Slave
+*   **Scalable**: Master node relays state commands; Slaves translate state to IR pulses.
+*   **Modular Config**: Mix and match Masters and Slaves for AC, Fan, and LEDs natively in `menuconfig`.
+*   **Targeted Routing**: Custom MAC address definitions per device.
 
-### 🌡 Sensors
-*   **AHT20 Support**: Optional I2C temperature/humidity sensor.
-*   **RainMaker/HomeKit Integration**: Sensor data displayed in cloud dashboard.
-
-### 🌈 LED Control
-*   **Dynamic Effects**: Rainbow, Breathing, Fire, Sparkle, and more.
-*   **Status Indication**:
-    *   **Cyan Breathing**: Provisioning Mode.
-    *   **Blue Solid**: Wi-Fi Connected.
-    *   **Green Blink**: IR Signal Sent.
-    *   **Yellow/Red**: Factory Reset / Error.
+### 🌈 5-Lamp LED Control
+*   **Multi-Instance**: Control up to 5 distinct RGB/Single-color LED lamps.
+*   **Dynamic Effects**: Rainbow, Breathing, Fire, Sparkle, and more per lamp.
 
 ### 🛡 Reliability
 *   **Robust OTA**: Dual-partition update system with auto-rollback.
-*   **State Persistence**: AC settings saved to NVS, restored on reboot.
+*   **State Persistence**: AC, Fan, and LED settings saved to NVS, instantly restored on reboot.
 
 ---
 
@@ -49,12 +41,10 @@
 
 | Component | Default GPIO | Notes |
 | :--- | :--- | :--- |
-| **IR Transmitter** | GPIO 4 | Controls AC |
-| **IR Receiver** | GPIO 7 | For Learning Mode |
-| **RGB LED** | GPIO 8 | WS2812B / SK6812 |
-| **Button** | GPIO 3 | Factory Reset (Long Press 3s) |
-| **AHT20 SDA** | GPIO 5 | I2C (Optional Sensor) |
-| **AHT20 SCL** | GPIO 6 | I2C (Optional Sensor) |
+| **IR Transmitter** | Configure in menuconfig | Used by Slaves for AC/Fan control |
+| **IR Receiver** | Configure in menuconfig | Used for Learning Mode |
+| **RGB LED** | Configure in menuconfig | Supports up to 5 individual pins |
+| **AHT20 SDA/SCL** | Configure in menuconfig | I2C Temperature Sensor |
 
 *GPIOs are configurable via `idf.py menuconfig` -> Hardware Configuration.*
 
@@ -62,18 +52,12 @@
 
 ## 📲 Provisioning Guide
 
-### Android (ESP RainMaker)
-1.  Download **ESP RainMaker** app.
-2.  Power on device (LED breathes **Cyan**).
-3.  Add Device -> Scan QR Code or Manual Pairing.
-4.  Select `PROV_XXXXXX` via Bluetooth, enter Wi-Fi credentials.
-5.  LED turns **Solid Blue** when connected.
-
-### iOS (HomeKit + Captive Portal)
+### iOS (HomeKit Bridge + Captive Portal)
 1.  Power on device (LED breathes **Cyan**).
-2.  Connect to `GokuAC_XXXX` WiFi network.
+2.  Connect to `Lamp-Setup-XXXX` WiFi network.
 3.  Captive portal auto-opens for WiFi configuration.
-4.  After WiFi connection, add device in Apple Home app using the pairing code displayed in Serial Monitor.
+4.  After WiFi connection, add device in Apple Home app using the pairing code `111-22-333` (Setup ID: `LP4C`).
+5.  All enabled devices (AC, Fan, Temp, LEDs 1-5) will automatically appear as bridged accessories.
 
 ---
 
@@ -84,10 +68,10 @@ The Web UI is **DISABLED by default** to save resources.
 **To Enable (Android):**
 1.  Open ESP RainMaker App.
 2.  Toggle **"WebUI Config Mode"** to ON.
-3.  Visit `http://gokuac.local:8080` in browser.
+3.  Visit `http://lampac.local` in browser.
 
 **To Enable (iOS):**
-*   Web UI is available at `http://gokuac.local:8080` when connected to the same network.
+*   Web UI is available at `http://lampac.local` when connected to the same network.
 
 ---
 
@@ -95,15 +79,11 @@ The Web UI is **DISABLED by default** to save resources.
 
 | Component | Description |
 | :--- | :--- |
-| **`goku_core`** | System utilities, memory monitoring, NVS |
-| **`goku_wifi`** | Wi-Fi manager, mDNS, provisioning |
-| **`goku_rainmaker`** | Cloud integration (Android) |
-| **`goku_homekit`** | Apple HomeKit integration (iOS) |
-| **`goku_sensor`** | AHT20 temperature/humidity driver |
-| **`goku_wifi_portal`** | Captive portal for iOS provisioning |
-| **`goku_web`** | HTTP Server & API |
-| **`goku_ir`** | RMT Driver & IR Protocol Logic |
-| **`goku_ota`** | Update manager & Rollback |
+| **`components/svc_*`** | Core Services (WiFi, Web, Storage, OTA, Log) |
+| **`components/drv_*`** | Hardware Drivers (IR, LED, Button, AHT20) |
+| **`components/mgr_*`** | Business Logic (AC, Fan, IR Protocols) |
+| **`components/int_*`** | Integrations (HomeKit, RainMaker) |
+| **`main`** | Application Entry & Configuration |
 
 ---
 
