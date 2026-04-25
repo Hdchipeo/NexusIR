@@ -15,6 +15,7 @@
 #include "mgr_ac_logic.h"
 #include "mgr_fan_logic.h"
 #include "mgr_ir_protocols.h"
+#include "mgr_relay.h"
 #include "svc_espnow.h"
 #include "svc_log.h"
 #include "svc_mdns.h"
@@ -96,24 +97,13 @@ static bool s_espnow_rx_in_progress = false;
 #endif
 
 // --- Master (Bridge) Adaptors ---
-#if CONFIG_APP_ESPNOW_AC_MASTER
 static void ac_bridge_send_adaptor(const ir_ac_state_t *state, ac_brand_t brand,
                                    const char *custom_name) {
   if (s_espnow_rx_in_progress)
     return;
   svc_espnow_bridge_ac_send(state, brand, custom_name ? custom_name : "");
 }
-#endif
 
-#if CONFIG_APP_ESPNOW_LED1_MASTER || CONFIG_APP_ESPNOW_LED2_MASTER || CONFIG_APP_ESPNOW_LED3_MASTER || CONFIG_APP_ESPNOW_LED4_MASTER || CONFIG_APP_ESPNOW_LED5_MASTER
-#define HAS_LED_MASTER 1
-#endif
-
-#if CONFIG_APP_ESPNOW_LED1_SLAVE || CONFIG_APP_ESPNOW_LED2_SLAVE || CONFIG_APP_ESPNOW_LED3_SLAVE || CONFIG_APP_ESPNOW_LED4_SLAVE || CONFIG_APP_ESPNOW_LED5_SLAVE
-#define HAS_LED_SLAVE 1
-#endif
-
-#ifdef HAS_LED_MASTER
 static void led_bridge_send_adaptor(uint8_t lamp_id, uint8_t power, uint8_t effect,
                                     uint8_t brightness, uint8_t r, uint8_t g,
                                     uint8_t b, uint8_t speed) {
@@ -121,33 +111,31 @@ static void led_bridge_send_adaptor(uint8_t lamp_id, uint8_t power, uint8_t effe
     return;
   svc_espnow_bridge_led_send(lamp_id, power, effect, brightness, r, g, b, speed);
 }
-#endif
 
-#if CONFIG_APP_ESPNOW_FAN_MASTER
 static void fan_bridge_send_adaptor(const ir_fan_state_t *state, fan_brand_t brand,
                                     const char *custom_name) {
   if (s_espnow_rx_in_progress)
     return;
   svc_espnow_bridge_fan_send(state, brand, custom_name ? custom_name : "");
 }
-#endif
+
+static void relay_bridge_send_adaptor(uint8_t idx, bool state) {
+  if (s_espnow_rx_in_progress)
+    return;
+  svc_espnow_bridge_relay_send(idx, state);
+}
 
 // --- Slave (Receiver) Adaptors ---
-#if CONFIG_APP_ESPNOW_AC_SLAVE
 static void ac_espnow_handler_adaptor(const ir_ac_state_t *state,
                                       ac_brand_t brand,
                                       const char *custom_name) {
   s_espnow_rx_in_progress = true;
-  // Only sync state (power/mode/temp/fan), keep local brand
-  // Slave has its own learned IR keys under its local brand
   mgr_ac_set_state(state);
   mgr_ac_send();
   int_homekit_update_state(state);
   s_espnow_rx_in_progress = false;
 }
-#endif
 
-#ifdef HAS_LED_SLAVE
 static void led_espnow_handler_adaptor(uint8_t lamp_id, uint8_t power, uint8_t effect,
                                        uint8_t brightness, uint8_t r, uint8_t g,
                                        uint8_t b, uint8_t speed) {
@@ -161,21 +149,22 @@ static void led_espnow_handler_adaptor(uint8_t lamp_id, uint8_t power, uint8_t e
   int_homekit_update_led(lamp_id, power, effect, brightness, r, g, b, speed);
   s_espnow_rx_in_progress = false;
 }
-#endif
 
-#if CONFIG_APP_ESPNOW_FAN_SLAVE
 static void fan_espnow_handler_adaptor(const ir_fan_state_t *state,
                                        fan_brand_t brand,
                                        const char *custom_name) {
   s_espnow_rx_in_progress = true;
-  // Only sync state (power/speed/swing), keep local brand
-  // Slave has its own learned IR keys under its local brand
   mgr_fan_set_state(state);
   mgr_fan_send();
   int_homekit_update_fan_state(state);
   s_espnow_rx_in_progress = false;
 }
-#endif
+
+static void relay_espnow_handler_adaptor(uint8_t idx, bool state) {
+  s_espnow_rx_in_progress = true;
+  mgr_relay_set_state(idx, state, true);
+  s_espnow_rx_in_progress = false;
+}
 
 // --- Temperature ESP-NOW ---
 #if CONFIG_APP_ESPNOW_TEMP_SLAVE
@@ -234,34 +223,28 @@ void app_main(void) {
   mgr_fan_init();
 #endif
 
+  mgr_relay_init();
+
   // 6. Initialize Wi-Fi Stack
   svc_wifi_init();
   svc_espnow_init();
 
-  // Register per-device ESP-NOW Master (Bridge) callbacks
-#if CONFIG_APP_ESPNOW_AC_MASTER
+  // Register Synchronization Callbacks
   mgr_ac_set_bridge_cb(ac_bridge_send_adaptor);
-#endif
-#ifdef HAS_LED_MASTER
-  drv_led_set_bridge_cb(led_bridge_send_adaptor);
-#endif
-#if CONFIG_APP_ESPNOW_FAN_MASTER
   mgr_fan_set_bridge_cb(fan_bridge_send_adaptor);
-#endif
-#if CONFIG_APP_ESPNOW_BRIDGE_ENABLE
-  mgr_ir_start_slave(); // IR background RX needed if any device is Master
+  drv_led_set_bridge_cb(led_bridge_send_adaptor);
+  mgr_relay_set_bridge_cb(relay_bridge_send_adaptor);
+
+#if CONFIG_APP_ESPNOW_BRIDGE_ENABLE || CONFIG_APP_ESPNOW_SLAVE_ENABLE
+  mgr_ir_start_slave(); 
 #endif
 
-  // Register per-device ESP-NOW Slave (Receiver) handlers
-#if CONFIG_APP_ESPNOW_AC_SLAVE
+  // Register ESP-NOW Handlers
   svc_espnow_register_ac_handler(ac_espnow_handler_adaptor);
-#endif
-#ifdef HAS_LED_SLAVE
   svc_espnow_register_led_handler(led_espnow_handler_adaptor);
-#endif
-#if CONFIG_APP_ESPNOW_FAN_SLAVE
   svc_espnow_register_fan_handler(fan_espnow_handler_adaptor);
-#endif
+  svc_espnow_register_relay_handler(relay_espnow_handler_adaptor);
+
 #if CONFIG_APP_ESPNOW_TEMP_MASTER
   svc_espnow_register_temp_handler(temp_espnow_handler);
 #endif

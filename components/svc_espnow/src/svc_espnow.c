@@ -18,7 +18,7 @@ static const char *TAG = "svc_espnow";
 
 #define PEER_NVS_NAMESPACE "espnow_ctrl"
 #define PEER_NVS_KEY "peers"
-#define MAX_PEERS 10
+#define MAX_PEERS 20
 
 typedef struct {
   uint8_t type; // 0: AC, 1: LED, 2: FAN, 3: TEMP
@@ -52,6 +52,10 @@ typedef struct {
       int16_t temp_x10;   // °C × 10 (e.g., 25.3 → 253)
       int16_t humid_x10;  // % × 10
     } temp;
+    struct {
+      uint8_t idx;
+      uint8_t state;
+    } relay;
   };
 } espnow_packet_t;
 
@@ -70,12 +74,14 @@ static uint8_t s_led_mac[5][6] = {
     {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
     {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 };
+static uint8_t s_relay_mac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 static bool s_espnow_initialized = false;
 
 static espnow_ac_handler_t s_ac_handler = NULL;
 static espnow_led_handler_t s_led_handler = NULL;
 static espnow_fan_handler_t s_fan_handler = NULL;
 static espnow_temp_handler_t s_temp_handler = NULL;
+static espnow_relay_handler_t s_relay_handler = NULL;
 
 static uint8_t s_peer_list[MAX_PEERS][6];
 static int s_peer_count = 0;
@@ -94,6 +100,10 @@ void svc_espnow_register_fan_handler(espnow_fan_handler_t handler) {
 
 void svc_espnow_register_temp_handler(espnow_temp_handler_t handler) {
   s_temp_handler = handler;
+}
+
+void svc_espnow_register_relay_handler(espnow_relay_handler_t handler) {
+  s_relay_handler = handler;
 }
 
 #if CONFIG_APP_ESPNOW_SLAVE_ENABLE
@@ -142,6 +152,11 @@ static void espnow_recv_cb(const esp_now_recv_info_t *recv_info,
     ESP_LOGI(TAG, "Received TEMP via ESP-NOW: %.1f°C, %.1f%%", temp, humid);
     if (s_temp_handler) {
       s_temp_handler(temp, humid);
+    }
+  } else if (pkt->type == ESPNOW_TYPE_RELAY) {
+    ESP_LOGI(TAG, "Received RELAY state via ESP-NOW from " MACSTR, MAC2STR(recv_info->src_addr));
+    if (s_relay_handler) {
+      s_relay_handler(pkt->relay.idx, pkt->relay.state);
     }
   }
 }
@@ -249,27 +264,18 @@ esp_err_t svc_espnow_init(void) {
     memset(s_target_mac, 0xFF, 6);
   }
 
-  esp_now_peer_info_t peer_info = {0};
-  memcpy(peer_info.peer_addr, s_target_mac, 6);
-  peer_info.channel = 0; 
-  peer_info.encrypt = false;
-
-  if (esp_now_add_peer(&peer_info) != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to add default peer: " MACSTR, MAC2STR(s_target_mac));
-  } else {
-    ESP_LOGI(TAG, "ESP-NOW Default Peer registered: " MACSTR, MAC2STR(s_target_mac));
-  }
   // Helper lambda for adding peers
   void add_device_peer(const char* mac_str, uint8_t *mac_out) {
-    if (parse_mac_address(mac_str, mac_out)) {
-      esp_now_peer_info_t pi = {0};
-      memcpy(pi.peer_addr, mac_out, 6);
-      if (!esp_now_is_peer_exist(mac_out)) {
-        esp_now_add_peer(&pi);
-        ESP_LOGI(TAG, "Added ESP-NOW peer: " MACSTR, MAC2STR(mac_out));
-      }
+    uint8_t mac[6];
+    if (parse_mac_address(mac_str, mac)) {
+      // Ignore broadcast MAC
+      uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+      if (memcmp(mac, broadcast, 6) == 0) return;
+
+      svc_espnow_add_peer(mac);
+      if (mac_out) memcpy(mac_out, mac, 6);
     } else {
-      memcpy(mac_out, s_target_mac, 6);
+      if (mac_out) memcpy(mac_out, s_target_mac, 6);
     }
   }
 
@@ -294,7 +300,17 @@ esp_err_t svc_espnow_init(void) {
 #ifdef CONFIG_APP_ESPNOW_LED5_MAC
   add_device_peer(CONFIG_APP_ESPNOW_LED5_MAC, s_led_mac[4]);
 #endif
+#ifdef CONFIG_APP_ESPNOW_RELAY_MAC
+  add_device_peer(CONFIG_APP_ESPNOW_RELAY_MAC, s_relay_mac);
+#endif
 
+  // --- Sync Peers from Kconfig ---
+  uint8_t dummy_mac[6];
+  add_device_peer(CONFIG_APP_ESPNOW_SYNC_PEER_1, dummy_mac);
+  add_device_peer(CONFIG_APP_ESPNOW_SYNC_PEER_2, dummy_mac);
+  add_device_peer(CONFIG_APP_ESPNOW_SYNC_PEER_3, dummy_mac);
+  add_device_peer(CONFIG_APP_ESPNOW_SYNC_PEER_4, dummy_mac);
+  add_device_peer(CONFIG_APP_ESPNOW_SYNC_PEER_5, dummy_mac);
 
   load_peers_from_nvs();
 
@@ -412,6 +428,26 @@ esp_err_t svc_espnow_bridge_temp_send(float temperature, float humidity) {
 
   ESP_LOGI(TAG, "Bridging TEMP over ESP-NOW: %.1f°C, %.1f%%", temperature, humidity);
   esp_now_send(s_target_mac, (uint8_t *)&pkt, sizeof(pkt));
+
+  for (int i = 0; i < s_peer_count; i++) {
+    if (memcmp(s_peer_list[i], s_target_mac, 6) == 0) continue;
+    esp_now_send(s_peer_list[i], (uint8_t *)&pkt, sizeof(pkt));
+  }
+  return ESP_OK;
+}
+
+esp_err_t svc_espnow_bridge_relay_send(uint8_t idx, bool state) {
+  if (!s_espnow_initialized) return ESP_ERR_INVALID_STATE;
+
+  espnow_packet_t pkt;
+  memset(&pkt, 0, sizeof(pkt));
+  pkt.type = ESPNOW_TYPE_RELAY;
+  pkt.relay.idx = idx;
+  pkt.relay.state = state;
+
+  uint8_t *mac = s_relay_mac;
+  ESP_LOGI(TAG, "Bridging RELAY %d update over ESP-NOW to " MACSTR, idx, MAC2STR(mac));
+  esp_now_send(mac, (uint8_t *)&pkt, sizeof(pkt));
 
   for (int i = 0; i < s_peer_count; i++) {
     if (memcmp(s_peer_list[i], s_target_mac, 6) == 0) continue;

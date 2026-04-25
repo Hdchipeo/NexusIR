@@ -255,12 +255,13 @@ static bool app_ir_rx_done_callback(rmt_channel_handle_t rx_chan,
       // Valid data received — copy symbol count only (buffer is DMA, already
       // written by hardware, no copy needed here).
       uint32_t num_symbols = (edata->num_symbols > MAX_IR_SYMBOLS)
-                                   ? MAX_IR_SYMBOLS
-                                   : edata->num_symbols;
+                                 ? MAX_IR_SYMBOLS
+                                 : edata->num_symbols;
 
       if (s_is_learning) {
         s_learning_num_symbols = num_symbols;
-        esp_rom_printf("IR RX Valid! Symbols: %d\n", (int)s_learning_num_symbols);
+        esp_rom_printf("IR RX Valid! Symbols: %d\n",
+                       (int)s_learning_num_symbols);
         s_is_learning = false;
         // ISR-safe: only update the state variable, bridge fires later in
         // mgr_ir_restart_reception() timer callback (normal task context).
@@ -293,10 +294,8 @@ static void mgr_ir_restart_reception(void *arg) {
   // overflow. Invoke it now with the DMA buffer data (safe in timer context).
   if (s_is_slave_mode && s_rx_callback && s_learning_num_symbols > 0) {
     uint32_t logical_count =
-        s_learning_num_symbols *
-        (sizeof(rmt_symbol_word_t) / sizeof(uint16_t));
-    uint16_t *durations =
-        (uint16_t *)malloc(logical_count * sizeof(uint16_t));
+        s_learning_num_symbols * (sizeof(rmt_symbol_word_t) / sizeof(uint16_t));
+    uint16_t *durations = (uint16_t *)malloc(logical_count * sizeof(uint16_t));
     if (durations) {
       const uint16_t *raw_symbols = (const uint16_t *)s_learning_symbols;
       for (uint32_t i = 0; i < logical_count; i++) {
@@ -466,29 +465,31 @@ bool mgr_ir_get_learn_status(uint32_t *count) {
 #include <ctype.h>
 
 static void normalize_key(char *dst, const char *src, size_t max_len) {
-    size_t i = 0;
-    for (; i < max_len - 1 && src[i]; i++) {
-        dst[i] = toupper((unsigned char)src[i]);
-    }
-    dst[i] = '\0'; // Explicit null termination
+  size_t i = 0;
+  for (; i < max_len - 1 && src[i]; i++) {
+    dst[i] = toupper((unsigned char)src[i]);
+  }
+  dst[i] = '\0'; // Explicit null termination
 }
 
 esp_err_t mgr_ir_save_learned_result(const char *key) {
   char upper_key[32] = {0};
   normalize_key(upper_key, key, sizeof(upper_key));
-  
+
   if (!s_learning_symbols || s_learning_num_symbols < APP_IR_MIN_SYMBOLS) {
     ESP_LOGW(TAG, "Insufficient IR data symbols to save for %s", upper_key);
     return ESP_FAIL;
   }
 
-  // Calculate total logical symbols (each rmt_symbol_word_t contains 2 uint16_t)
+  // Calculate total logical symbols (each rmt_symbol_word_t contains 2
+  // uint16_t)
   uint32_t logical_count = s_learning_num_symbols * 2;
-  
+
   // Format: [Magic:1][Count:4][Data: N*2]
   size_t total_size = 1 + 4 + (logical_count * sizeof(uint16_t));
   uint8_t *buffer = (uint8_t *)mgr_ir_malloc(total_size);
-  if (!buffer) return ESP_ERR_NO_MEM;
+  if (!buffer)
+    return ESP_ERR_NO_MEM;
 
   uint8_t *p = buffer;
   *p++ = IR_RAW_MAGIC;
@@ -496,13 +497,15 @@ esp_err_t mgr_ir_save_learned_result(const char *key) {
   p += 4;
   memcpy(p, s_learning_symbols, logical_count * sizeof(uint16_t));
 
-  ESP_LOGI(TAG, "Saving RAW IR %s: %d symbols -> %d bytes", upper_key, (int)logical_count, (int)total_size);
+  ESP_LOGI(TAG, "Saving RAW IR %s: %d symbols -> %d bytes", upper_key,
+           (int)logical_count, (int)total_size);
   esp_err_t err = svc_nvs_save_ir(upper_key, buffer, total_size);
-  
+
   // Debug print
   printf("RAW DATA: ");
   uint16_t *raw_ptr = (uint16_t *)s_learning_symbols;
-  for (int i = 0; i < (int)logical_count && i < 32; i++) printf("%04X ", raw_ptr[i]);
+  for (int i = 0; i < (int)logical_count && i < 32; i++)
+    printf("%04X ", raw_ptr[i]);
   printf("...\n");
 
   free(buffer);
@@ -514,13 +517,15 @@ esp_err_t mgr_ir_send_key(const char *key) {
   normalize_key(upper_key, key, sizeof(upper_key));
 
   size_t loaded_size = 0;
-  if (svc_nvs_load_ir(upper_key, NULL, &loaded_size) != ESP_OK || loaded_size < 5) {
+  if (svc_nvs_load_ir(upper_key, NULL, &loaded_size) != ESP_OK ||
+      loaded_size < 5) {
     ESP_LOGW(TAG, "Key %s not found in NVS", upper_key);
     return ESP_ERR_NOT_FOUND;
   }
 
   uint8_t *buffer = (uint8_t *)mgr_ir_malloc(loaded_size);
-  if (!buffer) return ESP_ERR_NO_MEM;
+  if (!buffer)
+    return ESP_ERR_NO_MEM;
   svc_nvs_load_ir(upper_key, buffer, &loaded_size);
 
   uint8_t format = buffer[0];
@@ -528,14 +533,17 @@ esp_err_t mgr_ir_send_key(const char *key) {
   memcpy(&num_symbols, buffer + 1, 4);
 
   size_t alloc_size = num_symbols * sizeof(uint16_t);
-  if (alloc_size % 4 != 0) alloc_size += 2; // Align to rmt_symbol_word_t (4 bytes)
-  rmt_symbol_word_t *tx_symbols = (rmt_symbol_word_t *)mgr_ir_malloc(alloc_size);
-  
+  if (alloc_size % 4 != 0)
+    alloc_size += 2; // Align to rmt_symbol_word_t (4 bytes)
+  rmt_symbol_word_t *tx_symbols =
+      (rmt_symbol_word_t *)mgr_ir_malloc(alloc_size);
+
   if (!tx_symbols) {
     free(buffer);
     return ESP_ERR_NO_MEM;
   }
-  // Zero-init: ensures padding half of last word is duration=0, level=0 (end-of-frame)
+  // Zero-init: ensures padding half of last word is duration=0, level=0
+  // (end-of-frame)
   memset(tx_symbols, 0, alloc_size);
 
   if (format == IR_RAW_MAGIC) {
@@ -547,35 +555,36 @@ esp_err_t mgr_ir_send_key(const char *key) {
     int out_idx = 0;
 
     for (int i = 0; i < (int)num_symbols; i++) {
-        uint16_t val = src[i];
-        uint16_t level = (val >> 15) & 0x1;
+      uint16_t val = src[i];
+      uint16_t level = (val >> 15) & 0x1;
 
-        // Skip leading spaces (level=0) at the start
-        if (out_idx == 0 && level == 0) continue;
+      // Skip leading spaces (level=0) at the start
+      if (out_idx == 0 && level == 0)
+        continue;
 
-        dst[out_idx++] = val; // Copy as-is, levels are already correct
+      dst[out_idx++] = val; // Copy as-is, levels are already correct
     }
     num_symbols = out_idx;
 
     // Strip trailing zero-duration symbols (RX timeout artifacts)
     while (num_symbols > 0 && (dst[num_symbols - 1] & 0x7FFF) == 0) {
-        num_symbols--;
+      num_symbols--;
     }
 
     // Ensure signal ends with odd count (last = mark, no trailing space)
     // Most IR protocols end with a final mark pulse
     if (num_symbols > 0 && num_symbols % 2 == 0) {
-        uint16_t last = dst[num_symbols - 1];
-        if ((last >> 15) == 0) { // Last is a space — drop it
-            num_symbols--;
-        }
+      uint16_t last = dst[num_symbols - 1];
+      if ((last >> 15) == 0) { // Last is a space — drop it
+        num_symbols--;
+      }
     }
 
     // Debug: print TX symbols
     printf("TX [%d]: ", (int)num_symbols);
     for (int i = 0; i < (int)num_symbols; i++) {
-        uint16_t v = dst[i];
-        printf("%c%d ", (v & 0x8000) ? 'M' : 'S', v & 0x7FFF);
+      uint16_t v = dst[i];
+      printf("%c%d ", (v & 0x8000) ? 'M' : 'S', v & 0x7FFF);
     }
     printf("\n");
   } else if (format == IR_DATA_MAGIC) {
@@ -587,20 +596,21 @@ esp_err_t mgr_ir_send_key(const char *key) {
     return ESP_FAIL;
   }
 
-  ESP_LOGI(TAG, "Sending IR %s (%d symbols, Format: 0x%02X)...", upper_key, (int)num_symbols, format);
+  ESP_LOGI(TAG, "Sending IR %s (%d symbols, Format: 0x%02X)...", upper_key,
+           (int)num_symbols, format);
   drv_led_set_state(DRV_LED_IR_TX);
 
   size_t word_count = (num_symbols + 1) / 2;
 
   // Send 3 times with gap — fan receivers often need repeated frames
   esp_err_t err = ESP_OK;
-  for (int rep = 0; rep < 3 && err == ESP_OK; rep++) {
+  for (int rep = 0; rep < 2 && err == ESP_OK; rep++) {
     err = ir_engine_send_raw(tx_symbols, word_count);
     if (rep < 2 && err == ESP_OK) {
       vTaskDelay(pdMS_TO_TICKS(40));
     }
   }
-  
+
   drv_led_set_state(DRV_LED_IDLE);
   free(tx_symbols);
   free(buffer);
@@ -681,7 +691,8 @@ bool mgr_ir_send_key_exists(const char *prefix, const char *brand,
   normalize_key(upper_key, key, sizeof(upper_key));
 
   size_t loaded_size = 0;
-  if (svc_nvs_load_ir(upper_key, NULL, &loaded_size) == ESP_OK && loaded_size > 0) {
+  if (svc_nvs_load_ir(upper_key, NULL, &loaded_size) == ESP_OK &&
+      loaded_size > 0) {
     return true;
   }
   return false;
