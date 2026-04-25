@@ -144,11 +144,9 @@ static void send_custom_key(const char *suffix) {
 }
 
 esp_err_t mgr_fan_send(void) {
-#if CONFIG_APP_ESPNOW_BRIDGE_ENABLE
     if (s_bridge_cb) {
         s_bridge_cb(&g_fan_state, g_fan_brand, g_is_custom_brand ? g_custom_brand_name : NULL);
     }
-#endif
 
     ESP_LOGI(TAG, "mgr_fan_send: Power=%d, Speed=%d, Brand=%d, Custom=%d (%s)", 
              g_fan_state.power, g_fan_state.speed, (int)g_fan_brand, g_is_custom_brand, g_custom_brand_name);

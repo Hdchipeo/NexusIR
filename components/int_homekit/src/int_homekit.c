@@ -1,5 +1,7 @@
 #include "int_homekit.h"
 #include "esp_log.h"
+#include "esp_system.h"
+#include "esp_mac.h"
 #include "sdkconfig.h"
 #include <math.h>
 #include <string.h>
@@ -21,6 +23,7 @@
 #endif
 
 #include "drv_led.h"
+#include "mgr_relay.h"
 
 static const char *TAG = "int_homekit";
 
@@ -55,6 +58,10 @@ static hap_serv_t *s_fan_service = NULL;
 static hap_char_t *s_fan_on_char = NULL;
 static hap_char_t *s_fan_speed_char = NULL;
 static hap_char_t *s_fan_direction_char = NULL;
+
+// Relay Services
+static hap_serv_t *s_relay_service[2] = {NULL};
+static hap_char_t *s_relay_on_char[2] = {NULL};
 
 static float s_led_h[MAX_LEDS] = {0.0f};
 static float s_led_s[MAX_LEDS] = {0.0f};
@@ -146,6 +153,7 @@ static int led_write(hap_write_data_t write_data[], int count, void *serv_priv,
 static void hap_task(void *p) {
   // HAP manages its own tasks internally, just keep this task alive
   // and update sensor data if enabled
+  uint32_t health_counter = 0;
   while (1) {
 #if CONFIG_LAMP_SENSOR_AHT20
     float temp = 0.0f;
@@ -168,6 +176,17 @@ static void hap_task(void *p) {
       }
     }
 #endif
+
+    // Periodic health check (every 60s = 12 loops × 5s)
+    // Helps diagnose stale sessions and memory leaks
+    health_counter++;
+    if (health_counter >= 12) {
+      health_counter = 0;
+      int paired = hap_get_paired_controller_count();
+      ESP_LOGI(TAG, "[Health] Paired controllers: %d | Free heap: %lu | Min heap: %lu",
+               paired, esp_get_free_heap_size(), esp_get_minimum_free_heap_size());
+    }
+
     vTaskDelay(pdMS_TO_TICKS(5000)); // Check every 5 seconds
   }
   vTaskDelete(NULL);
@@ -300,6 +319,22 @@ static int fan_write(hap_write_data_t write_data[], int count,
   return HAP_SUCCESS;
 }
 
+static int relay_write(hap_write_data_t write_data[], int count,
+                       void *serv_priv, void *write_priv) {
+  int idx = (int)(uint32_t)serv_priv;
+  for (int i = 0; i < count; i++) {
+    hap_write_data_t *data = &write_data[i];
+    if (strcmp(hap_char_get_type_uuid(data->hc), HAP_CHAR_UUID_ON) == 0) {
+      bool on = data->val.b;
+      ESP_LOGI(TAG, "HomeKit: Relay %d -> %s", idx, on ? "ON" : "OFF");
+      mgr_relay_set_state(idx, on, false); // Don't report back to HomeKit to avoid loop
+      hap_char_update_val(data->hc, &(data->val));
+      *(data->status) = HAP_STATUS_SUCCESS;
+    }
+  }
+  return HAP_SUCCESS;
+}
+
 static int webui_write(hap_write_data_t write_data[], int count,
                        void *serv_priv, void *write_priv) {
   for (int i = 0; i < count; i++) {
@@ -427,6 +462,13 @@ void int_homekit_update_temp(float temperature, float humidity) {
   }
 }
 
+void int_homekit_update_relay(uint8_t relay_idx, bool state) {
+  if (relay_idx < 2 && s_relay_on_char[relay_idx]) {
+    hap_val_t val = {.b = state};
+    hap_char_update_val(s_relay_on_char[relay_idx], &val);
+  }
+}
+
 static bool s_is_inited = false;
 
 // ... (existing code)
@@ -451,6 +493,11 @@ esp_err_t int_homekit_init(void) {
     s_is_inited = true;
   }
 
+  uint8_t mac[6];
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  char serial[16];
+  snprintf(serial, sizeof(serial), "NX-%02X%02X%02X%02X", mac[2], mac[3], mac[4], mac[5]);
+
   // -------------------------------------------------------------------------
   // 2. Create BRIDGE Accessory (Primary)
   // -------------------------------------------------------------------------
@@ -458,7 +505,7 @@ esp_err_t int_homekit_init(void) {
       .name = "NexusIR Bridge",
       .manufacturer = "NexusIR Inc",
       .model = "LP-BRIDGE-01",
-      .serial_num = "001122334400",
+      .serial_num = serial,
       .fw_rev = "1.3.0",
       .hw_rev = "1.0",
       .pv = "1.1.0",
@@ -484,11 +531,13 @@ esp_err_t int_homekit_init(void) {
 #ifndef CONFIG_APP_ESPNOW_AC_DISABLED
 #endif
   // -------------------------------------------------------------------------
+  char ac_serial[20];
+  snprintf(ac_serial, sizeof(ac_serial), "%s-AC", serial);
   hap_acc_cfg_t ac_cfg = {
       .name = "NexusIR AC",
       .manufacturer = "NexusIR Inc",
       .model = "LP-IR-01",
-      .serial_num = "001122334488",
+      .serial_num = ac_serial,
       .fw_rev = "1.3.0",
       .hw_rev = "1.0",
       .pv = "1.1.0",
@@ -712,6 +761,40 @@ esp_err_t int_homekit_init(void) {
       ESP_LOGI(TAG, "Added Bridged Fan Accessory");
     }
   }
+
+  // -------------------------------------------------------------------------
+  // Create Relay Accessories (Bridged)
+  // -------------------------------------------------------------------------
+#ifndef CONFIG_APP_ESPNOW_RELAY_DISABLED
+  const char *relay_names[2] = {CONFIG_APP_RELAY1_NAME, CONFIG_APP_RELAY2_NAME};
+  for (int i = 0; i < 2; i++) {
+    char r_serial[32]; snprintf(r_serial, sizeof(r_serial), "RELAY-%02X%02X-%d", mac[4], mac[5], i);
+    hap_acc_cfg_t r_cfg = {
+        .name = (char*)relay_names[i],
+        .manufacturer = "NexusIR Inc",
+        .model = "LP-RELAY-01",
+        .serial_num = r_serial,
+        .fw_rev = "1.0.0",
+        .hw_rev = "1.0",
+        .pv = "1.1.0",
+        .identify_routine = hap_identify,
+        .cid = HAP_CID_LIGHTING,
+    };
+    hap_acc_t *r_acc = hap_acc_create(&r_cfg);
+    if (r_acc) {
+      hap_acc_add_product_data(r_acc, product_data, sizeof(product_data));
+      s_relay_service[i] = hap_serv_lightbulb_create(mgr_relay_get_state(i));
+      if (s_relay_service[i]) {
+        hap_serv_set_priv(s_relay_service[i], (void*)(uint32_t)i);
+        s_relay_on_char[i] = hap_serv_get_char_by_uuid(s_relay_service[i], HAP_CHAR_UUID_ON);
+        hap_serv_set_write_cb(s_relay_service[i], relay_write);
+        hap_acc_add_serv(r_acc, s_relay_service[i]);
+        hap_add_bridged_accessory(r_acc, hap_get_unique_aid((char*)relay_names[i]));
+        ESP_LOGI(TAG, "Added Bridged Relay Accessory: %s", relay_names[i]);
+      }
+    }
+  }
+#endif
 
   hap_set_setup_code("111-22-333");
   hap_set_setup_id("LP4C");

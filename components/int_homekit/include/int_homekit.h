@@ -40,6 +40,13 @@ void int_homekit_update_fan_state(const ir_fan_state_t *state);
  */
 void int_homekit_update_temp(float temperature, float humidity);
 
+/**
+ * @brief Update HomeKit Relay UI from current state
+ * @param relay_idx 0 or 1
+ * @param state true for ON, false for OFF
+ */
+void int_homekit_update_relay(uint8_t relay_idx, bool state);
+
 #ifdef __cplusplus
 }
 #endif

@@ -8,6 +8,7 @@
 #include "freertos/event_groups.h"
 #include "freertos/task.h"
 #include "svc_wifi_prov.h"
+#include "svc_mdns.h"
 #include <network_provisioning/manager.h>
 #include <network_provisioning/scheme_ble.h>
 #include <string.h>
@@ -18,6 +19,7 @@ static const int WIFI_CONNECTED_EVENT = BIT0;
 static EventGroupHandle_t wifi_event_group;
 static bool s_reconnect = true; // Control auto-reconnect
 static bool s_sntp_initialized = false;
+static uint32_t s_reconnect_count = 0; // Track reconnects for diagnostics
 
 static void init_sntp(void) {
   // Check if SNTP is already initialized (e.g., by RainMaker)
@@ -59,11 +61,23 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_EVENT);
   } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
     ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-    ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
+    s_reconnect_count++;
+    ESP_LOGI(TAG, "Got IP:" IPSTR " (reconnect #%lu, ip_changed=%d)",
+             IP2STR(&event->ip_info.ip), s_reconnect_count,
+             event->ip_changed);
     xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
 
     // Initialize SNTP once we have internet
     init_sntp();
+
+    // If IP changed after reconnect, re-initialize mDNS so that
+    // HomeKit/iPhone can discover the device at its new address faster.
+    // HAP SDK handles its own _hap._tcp mDNS internally, but our
+    // custom _http._tcp service needs explicit re-announcement.
+    if (event->ip_changed && s_reconnect_count > 1) {
+      ESP_LOGW(TAG, "IP changed on reconnect, re-initializing mDNS");
+      svc_mdns_init();
+    }
 
 #if CONFIG_APP_LED_CONTROL
     drv_led_set_state(DRV_LED_IDLE);

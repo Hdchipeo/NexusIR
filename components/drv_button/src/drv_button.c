@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "iot_button.h"
+#include "button_gpio.h"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
 #include "svc_log.h"
@@ -24,23 +25,22 @@ static void button_long_press_cb(void *arg, void *data) {
 }
 
 esp_err_t drv_button_init(void) {
-  button_config_t gpio_btn_cfg = {
-      .type = BUTTON_TYPE_GPIO,
+  button_config_t btn_cfg = {
       .long_press_time = 3000,
       .short_press_time = 50,
-      .gpio_button_config =
-          {
-              .gpio_num = BUTTON_GPIO,
-              .active_level = CONFIG_APP_BUTTON_ACTIVE_LEVEL,
-          },
+  };
+  button_gpio_config_t gpio_cfg = {
+      .gpio_num = BUTTON_GPIO,
+      .active_level = CONFIG_APP_BUTTON_ACTIVE_LEVEL,
   };
 
-  button_handle_t btn_handle = iot_button_create(&gpio_btn_cfg);
+  button_handle_t btn_handle = NULL;
+  iot_button_new_gpio_device(&btn_cfg, &gpio_cfg, &btn_handle);
 
   if (btn_handle) {
-    iot_button_register_cb(btn_handle, BUTTON_SINGLE_CLICK,
+    iot_button_register_cb(btn_handle, BUTTON_SINGLE_CLICK, NULL,
                            button_single_click_cb, NULL);
-    iot_button_register_cb(btn_handle, BUTTON_LONG_PRESS_START,
+    iot_button_register_cb(btn_handle, BUTTON_LONG_PRESS_START, NULL,
                            button_long_press_cb, NULL);
     ESP_LOGI(TAG, "Button initialized on GPIO %d", BUTTON_GPIO);
     return ESP_OK;

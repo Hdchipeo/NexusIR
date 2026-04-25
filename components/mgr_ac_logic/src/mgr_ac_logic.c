@@ -205,13 +205,11 @@ static mgr_ac_bridge_cb_t s_bridge_cb = NULL;
 void mgr_ac_set_bridge_cb(mgr_ac_bridge_cb_t cb) { s_bridge_cb = cb; }
 
 esp_err_t mgr_ac_send(void) {
-#if CONFIG_APP_ESPNOW_BRIDGE_ENABLE
-  ESP_LOGI(TAG, "Bridge Mode Active: Syncing state via callback");
+  ESP_LOGI(TAG, "Syncing state via callback if set");
   if (s_bridge_cb) {
     s_bridge_cb(&g_ac_state, g_ac_brand,
                 g_is_custom_brand ? g_custom_brand_name : NULL);
   }
-#endif
 
   if (g_is_custom_brand) {
     ESP_LOGI(TAG, "Sending Custom Brand AC: %s", g_custom_brand_name);

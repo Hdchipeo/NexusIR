@@ -15,8 +15,27 @@ CONFIG_BT_NIMBLE_ENABLED=y
 CONFIG_ESP_WIFI_PROV_TRANSPORT_BLE=n
 CONFIG_APP_WIFI_PROV_TRANSPORT_SOFTAP=y
 
-# Fix HomeKit HTTP server open sockets to match LWIP limits
-CONFIG_HAP_HTTP_MAX_OPEN_SOCKETS=4
+# HomeKit HTTP server: increase sockets to support multiple iPhones/HomePods
+CONFIG_HAP_HTTP_MAX_OPEN_SOCKETS=6
+
+# Enable HAP Session Keep-Alive to detect and purge stale (zombie) sessions
+# Without this, dead connections occupy sockets for minutes, causing "No Response"
+CONFIG_HAP_SESSION_KEEP_ALIVE_ENABLE=y
+
+# Increase total LWIP socket pool to accommodate all concurrent services:
+# HAP(6) + mDNS(2) + ESP-NOW(1) + OTA(2) + WebServer(2) + margin(3) = 16
+CONFIG_LWIP_MAX_SOCKETS=16
+
+# Optimize TCP timers for faster socket recycling on LAN
+# Default MSL=60000 causes 120s TIME_WAIT per closed socket — too slow for 16 sockets
+CONFIG_LWIP_TCP_MSL=10000
+CONFIG_LWIP_TCP_FIN_WAIT_TIMEOUT=5000
+
+# Faster Gratuitous ARP so router/iPhone re-discovers ESP32 quicker after reconnect
+CONFIG_LWIP_GARP_TMR_INTERVAL=30
+
+# Restore last DHCP IP after reboot to avoid IP change and HomeKit re-discovery delay
+CONFIG_LWIP_DHCP_RESTORE_LAST_IP=y
 
 # Increase HTTP server header limits to fix "Header fields are too long"
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024

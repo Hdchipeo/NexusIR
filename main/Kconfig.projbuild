@@ -392,6 +392,70 @@ menu "Device Configuration"
             depends on APP_LED5_CONTROL
     endmenu
 
+    # --- Dual Touch Relay ---
+    menu "Dual Touch Relay"
+        choice APP_ESPNOW_RELAY_MODE
+            prompt "Touch Relay ESP-NOW Mode"
+            default APP_ESPNOW_RELAY_DISABLED
+            help
+                Master: Send Relay commands to slave nodes.
+                Slave:  Receive Relay commands from master and control relays.
+                Standalone: Local button controls local relay.
+                Disabled: Hide from HomeKit.
+
+            config APP_ESPNOW_RELAY_MASTER
+                bool "Master"
+            config APP_ESPNOW_RELAY_SLAVE
+                bool "Slave"
+            config APP_ESPNOW_RELAY_STANDALONE
+                bool "Standalone"
+            config APP_ESPNOW_RELAY_DISABLED
+                bool "Disabled"
+        endchoice
+
+        config APP_RELAY1_NAME
+            string "Relay 1 Custom Name"
+            default "Light 1"
+            depends on !APP_ESPNOW_RELAY_DISABLED
+
+        config APP_RELAY2_NAME
+            string "Relay 2 Custom Name"
+            default "Light 2"
+            depends on !APP_ESPNOW_RELAY_DISABLED
+
+        config APP_ESPNOW_RELAY_MAC
+            string "Relay Slave MAC Address"
+            default "FF:FF:FF:FF:FF:FF"
+            depends on APP_ESPNOW_RELAY_MASTER
+            help
+                The MAC address of the relay slave device.
+
+        config APP_RELAY_HARDWARE_ENABLE
+            bool "Enable Relay Hardware"
+            default y
+            depends on APP_ESPNOW_RELAY_SLAVE || APP_ESPNOW_RELAY_STANDALONE
+
+        config APP_RELAY1_GPIO
+            int "Relay 1 GPIO (Output)"
+            default 12
+            depends on APP_RELAY_HARDWARE_ENABLE
+
+        config APP_RELAY2_GPIO
+            int "Relay 2 GPIO (Output)"
+            default 13
+            depends on APP_RELAY_HARDWARE_ENABLE
+
+        config APP_TOUCH1_GPIO
+            int "Touch Button 1 GPIO (Input)"
+            default 14
+            depends on APP_RELAY_HARDWARE_ENABLE
+
+        config APP_TOUCH2_GPIO
+            int "Touch Button 2 GPIO (Input)"
+            default 15
+            depends on APP_RELAY_HARDWARE_ENABLE
+    endmenu
+
 
     menu "IR Hardware"
         depends on APP_ESPNOW_AC_SLAVE || APP_ESPNOW_AC_STANDALONE || APP_ESPNOW_FAN_SLAVE || APP_ESPNOW_FAN_STANDALONE
@@ -424,16 +488,40 @@ menu "ESP-NOW Configuration"
 
     config APP_ESPNOW_BRIDGE_ENABLE
         bool
-        default y if APP_ESPNOW_AC_MASTER || APP_ESPNOW_FAN_MASTER || APP_ESPNOW_TEMP_SLAVE || APP_ESPNOW_LED1_MASTER || APP_ESPNOW_LED2_MASTER || APP_ESPNOW_LED3_MASTER || APP_ESPNOW_LED4_MASTER || APP_ESPNOW_LED5_MASTER
+        default y if APP_ESPNOW_AC_MASTER || APP_ESPNOW_FAN_MASTER || APP_ESPNOW_TEMP_SLAVE || APP_ESPNOW_LED1_MASTER || APP_ESPNOW_LED2_MASTER || APP_ESPNOW_LED3_MASTER || APP_ESPNOW_LED4_MASTER || APP_ESPNOW_LED5_MASTER || APP_ESPNOW_RELAY_MASTER
 
     config APP_ESPNOW_SLAVE_ENABLE
         bool
-        default y if APP_ESPNOW_AC_SLAVE || APP_ESPNOW_FAN_SLAVE || APP_ESPNOW_TEMP_MASTER || APP_ESPNOW_LED1_SLAVE || APP_ESPNOW_LED2_SLAVE || APP_ESPNOW_LED3_SLAVE || APP_ESPNOW_LED4_SLAVE || APP_ESPNOW_LED5_SLAVE
+        default y if APP_ESPNOW_AC_SLAVE || APP_ESPNOW_FAN_SLAVE || APP_ESPNOW_TEMP_MASTER || APP_ESPNOW_LED1_SLAVE || APP_ESPNOW_LED2_SLAVE || APP_ESPNOW_LED3_SLAVE || APP_ESPNOW_LED4_SLAVE || APP_ESPNOW_LED5_SLAVE || APP_ESPNOW_RELAY_SLAVE
 
     config APP_ESPNOW_PEER_MAC
-        string "Peer device MAC Address"
+        string "Default Peer MAC Address"
         default "FF:FF:FF:FF:FF:FF"
         depends on APP_ESPNOW_BRIDGE_ENABLE || APP_ESPNOW_SLAVE_ENABLE
+
+    menu "Sync Peers"
+        depends on APP_ESPNOW_BRIDGE_ENABLE || APP_ESPNOW_SLAVE_ENABLE
+        
+        config APP_ESPNOW_SYNC_PEER_1
+            string "Sync Peer 1 MAC"
+            default "FF:FF:FF:FF:FF:FF"
+            
+        config APP_ESPNOW_SYNC_PEER_2
+            string "Sync Peer 2 MAC"
+            default "FF:FF:FF:FF:FF:FF"
+            
+        config APP_ESPNOW_SYNC_PEER_3
+            string "Sync Peer 3 MAC"
+            default "FF:FF:FF:FF:FF:FF"
+            
+        config APP_ESPNOW_SYNC_PEER_4
+            string "Sync Peer 4 MAC"
+            default "FF:FF:FF:FF:FF:FF"
+            
+        config APP_ESPNOW_SYNC_PEER_5
+            string "Sync Peer 5 MAC"
+            default "FF:FF:FF:FF:FF:FF"
+    endmenu
 
 endmenu
 

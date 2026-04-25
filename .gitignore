@@ -11,3 +11,5 @@ dist/
 *.map
 *.hex
 idflint.log
+.cache/
+
