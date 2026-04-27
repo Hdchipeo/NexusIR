@@ -152,31 +152,25 @@ static esp_err_t index_handler(httpd_req_t *req) {
   return ESP_OK;
 }
 
+#include "svc_wifi.h"
+
 static esp_err_t scan_handler(httpd_req_t *req) {
   ESP_LOGI(TAG, "WiFi scan requested");
 
-  wifi_scan_config_t scan_config = {0};
-  esp_err_t err = esp_wifi_scan_start(&scan_config, true);
+  wifi_ap_record_t *ap_records = NULL;
+  uint16_t ap_count = 0;
+
+  esp_err_t err = svc_wifi_get_scan_results(&ap_records, &ap_count);
   if (err != ESP_OK) {
+    ESP_LOGE(TAG, "Scan failed: %s", esp_err_to_name(err));
     httpd_resp_send_500(req);
     return ESP_FAIL;
   }
 
-  uint16_t ap_count = 0;
-  esp_wifi_scan_get_ap_num(&ap_count);
-
-  if (ap_count == 0) {
+  if (ap_count == 0 || ap_records == NULL) {
     httpd_resp_sendstr(req, "[]");
     return ESP_OK;
   }
-
-  wifi_ap_record_t *ap_records = malloc(ap_count * sizeof(wifi_ap_record_t));
-  if (!ap_records) {
-    httpd_resp_send_500(req);
-    return ESP_FAIL;
-  }
-
-  esp_wifi_scan_get_ap_records(&ap_count, ap_records);
 
   cJSON *json_array = cJSON_CreateArray();
   for (int i = 0; i < ap_count; i++) {

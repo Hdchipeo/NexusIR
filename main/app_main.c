@@ -24,6 +24,8 @@
 #include "svc_web_server.h"
 #include "svc_wifi.h"
 #include "sys_mem.h"
+#include "mgr_display.h"
+
 
 // RainMaker headers
 #include <esp_rmaker_common_events.h>
@@ -49,7 +51,7 @@ static void web_ui_toggle_cb(bool enable) {
 }
 #endif
 
-#if CONFIG_LAMP_PLATFORM_IOS
+#if defined(CONFIG_LAMP_PLATFORM_IOS) && defined(CONFIG_APP_HOMEKIT_ENABLE)
 
 static void ios_homekit_init_task(void *arg) {
   bool is_paired = int_homekit_is_paired();
@@ -79,14 +81,14 @@ static void ios_wifi_event_handler(void *arg, esp_event_base_t event_base,
     xTaskCreate(ios_homekit_init_task, "hk_init", 8192, NULL, 5, NULL);
   }
 }
-#endif
+#endif // CONFIG_APP_HOMEKIT_ENABLE
 
 static void ip_event_handler(void *arg, esp_event_base_t event_base,
                              int32_t event_id, void *event_data) {
   if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
     svc_ota_mark_valid();
-#if !CONFIG_LAMP_PLATFORM_IOS
-    // Android/Generic: Start mDNS here (No HomeKit conflict)
+#if !defined(CONFIG_LAMP_PLATFORM_IOS) || !defined(CONFIG_APP_HOMEKIT_ENABLE)
+    // Android/Generic or iOS with HomeKit disabled: Start mDNS here
     svc_mdns_init();
 #endif
   }
@@ -102,6 +104,11 @@ static void ac_bridge_send_adaptor(const ir_ac_state_t *state, ac_brand_t brand,
   if (s_espnow_rx_in_progress)
     return;
   svc_espnow_bridge_ac_send(state, brand, custom_name ? custom_name : "");
+#if CONFIG_APP_LCD_ENABLE
+  char buf[32];
+  snprintf(buf, sizeof(buf), "%s %d°C", state->power ? "ON" : "OFF", state->temp);
+  mgr_display_show_ui_notification_safe("Air Conditioner", buf);
+#endif
 }
 
 static void led_bridge_send_adaptor(uint8_t lamp_id, uint8_t power, uint8_t effect,
@@ -110,6 +117,11 @@ static void led_bridge_send_adaptor(uint8_t lamp_id, uint8_t power, uint8_t effe
   if (s_espnow_rx_in_progress)
     return;
   svc_espnow_bridge_led_send(lamp_id, power, effect, brightness, r, g, b, speed);
+#if CONFIG_APP_LCD_ENABLE
+  char title[32];
+  snprintf(title, sizeof(title), "Lamp %d", lamp_id);
+  mgr_display_show_ui_notification_safe(title, power ? "ON" : "OFF");
+#endif
 }
 
 static void fan_bridge_send_adaptor(const ir_fan_state_t *state, fan_brand_t brand,
@@ -117,28 +129,43 @@ static void fan_bridge_send_adaptor(const ir_fan_state_t *state, fan_brand_t bra
   if (s_espnow_rx_in_progress)
     return;
   svc_espnow_bridge_fan_send(state, brand, custom_name ? custom_name : "");
+#if CONFIG_APP_LCD_ENABLE
+  mgr_display_show_ui_notification_safe("Fan", state->power ? "ON" : "OFF");
+#endif
 }
 
 static void relay_bridge_send_adaptor(uint8_t idx, bool state) {
   if (s_espnow_rx_in_progress)
     return;
   svc_espnow_bridge_relay_send(idx, state);
+#if CONFIG_APP_LCD_ENABLE
+  char title[32];
+  snprintf(title, sizeof(title), "Relay %d", idx + 1);
+  mgr_display_show_ui_notification_safe(title, state ? "ON" : "OFF");
+#endif
 }
 
 // --- Slave (Receiver) Adaptors ---
 static void ac_espnow_handler_adaptor(const ir_ac_state_t *state,
                                       ac_brand_t brand,
                                       const char *custom_name) {
+  ESP_LOGI(TAG, "UI Update: Received AC state via ESP-NOW");
   s_espnow_rx_in_progress = true;
   mgr_ac_set_state(state);
   mgr_ac_send();
   int_homekit_update_state(state);
+#if CONFIG_APP_LCD_ENABLE
+  char buf[32];
+  snprintf(buf, sizeof(buf), "%s %d°C", state->power ? "ON" : "OFF", state->temp);
+  mgr_display_show_ui_notification_safe("Air Conditioner", buf);
+#endif
   s_espnow_rx_in_progress = false;
 }
 
 static void led_espnow_handler_adaptor(uint8_t lamp_id, uint8_t power, uint8_t effect,
                                        uint8_t brightness, uint8_t r, uint8_t g,
                                        uint8_t b, uint8_t speed) {
+  ESP_LOGI(TAG, "UI Update: Received LED state via ESP-NOW for Lamp %d", lamp_id);
   s_espnow_rx_in_progress = true;
   drv_led_set_brightness(lamp_id, brightness);
   drv_led_set_speed(lamp_id, speed);
@@ -147,47 +174,81 @@ static void led_espnow_handler_adaptor(uint8_t lamp_id, uint8_t power, uint8_t e
   if (power)
     drv_led_set_effect(lamp_id, (drv_led_effect_t)effect);
   int_homekit_update_led(lamp_id, power, effect, brightness, r, g, b, speed);
+#if CONFIG_APP_LCD_ENABLE
+  char title[32];
+  snprintf(title, sizeof(title), "Lamp %d", lamp_id);
+  mgr_display_show_ui_notification_safe(title, power ? "ON" : "OFF");
+#endif
   s_espnow_rx_in_progress = false;
 }
 
 static void fan_espnow_handler_adaptor(const ir_fan_state_t *state,
                                        fan_brand_t brand,
                                        const char *custom_name) {
+  ESP_LOGI(TAG, "UI Update: Received FAN state via ESP-NOW");
   s_espnow_rx_in_progress = true;
   mgr_fan_set_state(state);
   mgr_fan_send();
   int_homekit_update_fan_state(state);
+#if CONFIG_APP_LCD_ENABLE
+  mgr_display_show_ui_notification_safe("Fan", state->power ? "ON" : "OFF");
+#endif
   s_espnow_rx_in_progress = false;
 }
 
 static void relay_espnow_handler_adaptor(uint8_t idx, bool state) {
+  ESP_LOGI(TAG, "UI Update: Received RELAY state via ESP-NOW for Relay %d", idx + 1);
   s_espnow_rx_in_progress = true;
   mgr_relay_set_state(idx, state, true);
+#if CONFIG_APP_LCD_ENABLE
+  char title[32];
+  snprintf(title, sizeof(title), "Relay %d", idx + 1);
+  mgr_display_show_ui_notification_safe(title, state ? "ON" : "OFF");
+#endif
   s_espnow_rx_in_progress = false;
 }
 
 // --- Temperature ESP-NOW ---
-#if CONFIG_APP_ESPNOW_TEMP_SLAVE
-static void temp_report_task(void *arg) {
-  // Wait for ESP-NOW to be fully initialized
-  vTaskDelay(pdMS_TO_TICKS(5000));
-  ESP_LOGI(TAG, "Temp report task started (30s interval)");
+#if CONFIG_LAMP_SENSOR_AHT20
+static void temp_update_task(void *arg) {
+  // Wait for sensor to stabilize
+  vTaskDelay(pdMS_TO_TICKS(2000));
+  ESP_LOGI(TAG, "Local sensor UI update task started");
   while (1) {
     float t = 0, h = 0;
     if (aht20_sensor_read(&t, &h) == ESP_OK) {
+#if CONFIG_APP_ESPNOW_TEMP_SLAVE
       svc_espnow_bridge_temp_send(t, h);
+#endif
+#if CONFIG_APP_LCD_ENABLE
+      mgr_display_update_ui_sensor_safe(t, h);
+#endif
     }
-    vTaskDelay(pdMS_TO_TICKS(30000)); // Report every 30 seconds
+    vTaskDelay(pdMS_TO_TICKS(10000)); // Update every 10 seconds
   }
 }
 #endif
 
 #if CONFIG_APP_ESPNOW_TEMP_MASTER
 static void temp_espnow_handler(float temp, float humidity) {
-  ESP_LOGI(TAG, "Temp from Slave: %.1f°C, %.1f%%", temp, humidity);
+  ESP_LOGI(TAG, "LCD Update: Received Temp from Slave -> %.1f°C", temp);
   int_homekit_update_temp(temp, humidity);
+#if CONFIG_APP_LCD_ENABLE
+  mgr_display_update_ui_sensor_safe(temp, humidity);
+#endif
 }
 #endif
+
+#if CONFIG_APP_LCD_ENABLE
+static void ui_time_update_task(void *arg) {
+  while (1) {
+    mgr_display_update_ui_time_safe();
+    vTaskDelay(pdMS_TO_TICKS(10000)); // Update time every 10 seconds
+  }
+}
+#endif
+
+#include "svc_weather.h"
 
 void app_main(void) {
   svc_log_init();
@@ -208,6 +269,12 @@ void app_main(void) {
   if (mgr_ir_init() != ESP_OK) {
     ESP_LOGE(TAG, "Failed to init IR");
   }
+
+#if CONFIG_APP_LCD_ENABLE
+  mgr_display_init();
+  xTaskCreate(ui_time_update_task, "ui_time", 4096, NULL, 1, NULL);
+#endif
+
 
   // 4. Initialize Peripherals (LED, Button)
   ESP_ERROR_CHECK(drv_led_init());
@@ -253,10 +320,7 @@ void app_main(void) {
 #if CONFIG_LAMP_SENSOR_AHT20
   if (drv_aht20_init() == ESP_OK) {
     ESP_LOGI(TAG, "AHT20 Sensor Initialized");
-#if CONFIG_APP_ESPNOW_TEMP_SLAVE
-    xTaskCreate(temp_report_task, "temp_rpt", 4096, NULL, 3, NULL);
-    ESP_LOGI(TAG, "Temp ESP-NOW Slave: reporting task started");
-#endif
+    xTaskCreate(temp_update_task, "temp_upd", 4096, NULL, 3, NULL);
   } else {
     ESP_LOGW(TAG, "AHT20 Sensor Init Failed");
   }
@@ -267,11 +331,15 @@ void app_main(void) {
   // [Android] Initialize RainMaker
   int_rainmaker_register_webui_toggle(web_ui_toggle_cb);
   int_rainmaker_init();
-#elif CONFIG_LAMP_PLATFORM_IOS
+#elif defined(CONFIG_LAMP_PLATFORM_IOS)
+  #if CONFIG_APP_HOMEKIT_ENABLE
   // [iOS] Register event handler to init HomeKit after WiFi connected
   ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
                                              &ios_wifi_event_handler, NULL));
-  ESP_LOGI(TAG, "iOS mode: HomeKit will start after WiFi connection");
+  ESP_LOGI(TAG, "iOS mode: HomeKit enabled, will start after WiFi connection");
+  #else
+  ESP_LOGI(TAG, "iOS mode: HomeKit disabled, only mDNS will start");
+  #endif
 #endif
 
   // 9. Start Provisioning / Network
@@ -285,14 +353,19 @@ void app_main(void) {
   if (svc_web_init() != ESP_OK) {
     ESP_LOGE(TAG, "Failed to init Web Server resources");
   }
-#if CONFIG_LAMP_PLATFORM_IOS
+#if defined(CONFIG_LAMP_PLATFORM_IOS) && defined(CONFIG_APP_HOMEKIT_ENABLE)
   ESP_LOGI(TAG,
            "iOS mode: Web server initialized but stopped (Toggle via HomeKit)");
 #endif
 
   // 12. Initialize Automatic OTA
+#if CONFIG_APP_OTA_ENABLE
   // Periodically checks for firmware updates from CONFIG_OTA_SERVER_URL.
   svc_ota_auto_init();
+#endif
+
+  // 13. Initialize Real-time Weather Service
+  svc_weather_init();
 
   ESP_LOGI(TAG, "Initialization Complete. Device ready.");
 

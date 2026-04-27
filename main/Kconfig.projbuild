@@ -539,8 +539,16 @@ menu "Mobile Platform"
             select ESP_RAINMAKER_ENABLE
 
         config LAMP_PLATFORM_IOS
-            bool "iOS (Apple HomeKit)"
+            bool "iOS (HomeKit + mDNS)"
     endchoice
+
+    config APP_HOMEKIT_ENABLE
+        bool "Enable HomeKit Service"
+        default y
+        depends on LAMP_PLATFORM_IOS
+        help
+            Initialize HomeKit Accessory Server and bridge functionality.
+            Only applicable for iOS/HomeKit platform.
 
 endmenu
 
@@ -581,14 +589,21 @@ endmenu
 # OTA Configuration
 # =============================================================================
 menu "OTA Configuration"
+    config APP_OTA_ENABLE
+        bool "Enable Automatic OTA Update"
+        default y
+        help
+            Periodically check for new firmware versions from the OTA server.
 
     config OTA_SERVER_URL
         string "OTA Server URL"
         default "https://salty-mouth.surge.sh"
+        depends on APP_OTA_ENABLE
 
     config OTA_CHECK_INTERVAL
         int "OTA Check Interval (seconds)"
         default 3600
+        depends on APP_OTA_ENABLE
 
 endmenu
 

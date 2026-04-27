@@ -19,6 +19,8 @@
 #include <time.h>
 
 static const char *TAG = "svc_ota";
+
+#if CONFIG_APP_OTA_ENABLE
 #define OTA_HISTORY_KEY "ota_history"
 #define MAX_HISTORY_ENTRIES 5
 
@@ -351,3 +353,17 @@ void svc_ota_trigger_check(void) {
     xTaskNotifyGive(s_ota_task_handle);
   }
 }
+
+#else // !CONFIG_APP_OTA_ENABLE
+
+// Stubs for when OTA is disabled
+char *svc_ota_get_history(void) { return strdup("[]"); }
+void svc_ota_mark_valid(void) {}
+esp_err_t svc_ota_start(const char *url) { return ESP_ERR_NOT_SUPPORTED; }
+esp_err_t svc_ota_check_version(char *remote, size_t len) { return ESP_ERR_NOT_SUPPORTED; }
+void svc_ota_auto_init(void) {}
+const char *svc_ota_get_cached_version(void) { return "Disabled"; }
+bool svc_ota_is_update_available(void) { return false; }
+void svc_ota_trigger_check(void) {}
+
+#endif // CONFIG_APP_OTA_ENABLE
