@@ -569,7 +569,7 @@ menu "WiFi Configuration"
 
     config APP_PROV_SERVICE_NAME
         string "Provisioning Service Name"
-        default "PROV_LAMP_IR"
+        default "PROV_NEXUS_IR"
 
     config APP_PROV_POP
         string "Proof of Possession (PoP)"

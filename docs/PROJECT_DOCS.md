@@ -121,7 +121,7 @@ The system utilizes the ESP32 as a Master controller/Bridge or a hardware Slave 
 4. **If Not Found**: Start **Provisioning Mode** (SoftAP).
 
 ### SoftAP Mode
-- **SSID**: `Lamp-Setup-XXXX` (Last 2 bytes of MAC).
+- **SSID**: `NexusIR-Setup-XXXX` (Last 2 bytes of MAC).
 - **IP**: `192.168.4.1`.
 - **DNS**: Captive Portal redirects all queries to the Web Portal.
 
@@ -141,7 +141,7 @@ The system utilizes the ESP32 as a Master controller/Bridge or a hardware Slave 
 - `POST /api/wifi/save`: Receives SSID/Password.
 
 ### User Flow
-1. Connect to `Lamp-Setup`.
+1. Connect to `NexusIR-Setup`.
 2. Browser popup appears.
 3. Select Home WiFi.
 4. Enter Password.
@@ -220,7 +220,7 @@ The system utilizes the ESP32 as a Master controller/Bridge or a hardware Slave 
 ## 13. OTA UPDATE STRATEGY
 
 ### Flow
-1. Admin uploads `lamp-ir-device.bin` to secure server.
+1. Admin uploads `nexus-ir.bin` to secure server.
 2. User clicks "Update" on WebUI or RainMaker.
 3. ESP32 downloads -> Verifies App Image -> Writes to Next OTA Slot.
 4. Set Boot Partition -> Reboot.

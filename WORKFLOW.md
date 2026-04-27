@@ -105,7 +105,7 @@ This document explains the internal workflows and logic for the core components 
 *   **Front-end**: Single Page Application (embedded HTML/CSS/JS string in `app_web.c`).
 
 ### Interaction
-1.  **Access**: User visits `http://nexusir.local`.
+1.  **Access**: User visits `http://nexusir-xxxx.local`.
 2.  **Load**: Browser downloads the HTML/JS.
 3.  **JS Init**: JavaScript `fetch()` calls `/api/ir/list` to get saved keys.
 4.  **Commands**:
