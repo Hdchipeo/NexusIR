@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-PROJECT_NAME="goku-ir-device"
+PROJECT_NAME="nexus-ir"
 BUILD_DIR="build"
 
 # Check if surge is installed

@@ -27,6 +27,7 @@ void mgr_display_update_ui_weather_safe(const char *status);
 void mgr_display_update_ui_weather_code_safe(int code);
 void mgr_display_show_ui_notification_safe(const char *device_name, const char *status);
 void mgr_display_update_ui_time_safe(void);
+void mgr_display_activity_tick(void);
 
 #else
 
@@ -37,6 +38,7 @@ static inline void mgr_display_update_ui_weather_safe(const char *status) {}
 static inline void mgr_display_update_ui_weather_code_safe(int code) {}
 static inline void mgr_display_show_ui_notification_safe(const char *device_name, const char *status) {}
 static inline void mgr_display_update_ui_time_safe(void) {}
+static inline void mgr_display_activity_tick(void) {}
 
 #endif // CONFIG_APP_LCD_ENABLE
 

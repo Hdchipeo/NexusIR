@@ -8,13 +8,14 @@
 #include "nvs_flash.h"
 #include "sdkconfig.h"
 #include "svc_log.h"
+#include "mgr_display.h"
 
 #define TAG "drv_button"
 #define BUTTON_GPIO CONFIG_APP_BUTTON_GPIO
 
 static void button_single_click_cb(void *arg, void *data) {
-  ESP_LOGI(TAG, "Button Tap - Restart system");
-  esp_restart();
+  ESP_LOGI(TAG, "Button Tap - Wake up display");
+  mgr_display_activity_tick();
 }
 
 static void button_long_press_cb(void *arg, void *data) {
@@ -38,8 +39,8 @@ esp_err_t drv_button_init(void) {
   iot_button_new_gpio_device(&btn_cfg, &gpio_cfg, &btn_handle);
 
   if (btn_handle) {
-    iot_button_register_cb(btn_handle, BUTTON_SINGLE_CLICK, NULL,
-                           button_single_click_cb, NULL);
+    iot_button_register_cb(btn_handle, BUTTON_PRESS_DOWN, NULL,
+                           button_single_click_cb, NULL); // Wake up on ANY press
     iot_button_register_cb(btn_handle, BUTTON_LONG_PRESS_START, NULL,
                            button_long_press_cb, NULL);
     ESP_LOGI(TAG, "Button initialized on GPIO %d", BUTTON_GPIO);

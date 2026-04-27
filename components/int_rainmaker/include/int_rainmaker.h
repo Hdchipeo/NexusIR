@@ -1,5 +1,5 @@
 /**
- * @file goku_rainmaker.h
+ * @file nexus_rainmaker.h
  * @brief ESP RainMaker Integration
  */
 

@@ -1,4 +1,4 @@
-// Goku Modern Web UI Implementation
+// NexusIR Modern Web UI Implementation
 // Mobile-First Logic
 
 // --- Constants & State ---
@@ -51,7 +51,7 @@ const MODES = [
 
 // --- Initialization ---
 window.onload = () => {
-    if (localStorage.getItem('goku_debug') === 'true') enableDebug(true);
+    if (localStorage.getItem('nexus_debug') === 'true') enableDebug(true);
     else enableDebug(false);
 
     fetchCustomBrands().then(() => {
@@ -98,7 +98,7 @@ function triggerDebug() {
 
 function enableDebug(enabled) {
     state.isDebug = enabled;
-    localStorage.setItem('goku_debug', enabled);
+    localStorage.setItem('nexus_debug', enabled);
     DOM.debugHidden.forEach(el => {
         if (enabled) el.classList.remove('hidden');
         else el.classList.add('hidden');

@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <cstring>
 
-static const char *TAG = "goku_ir_universal";
+static const char *TAG = "nexus_ir_universal";
 
 static void fill_pair(uint16_t *raw, size_t *idx, uint16_t mark,
                       uint16_t space) {

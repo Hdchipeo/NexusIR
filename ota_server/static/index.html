@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusIR OTA Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                <span>NexusIR</span>
+            </div>
+            <nav>
+                <a href="#" class="nav-item active" data-tab="dashboard">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+                    Dashboard
+                </a>
+                <a href="#" class="nav-item" data-tab="versions">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    Firmware
+                </a>
+                <a href="#" class="nav-item" data-tab="devices">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    Devices
+                </a>
+            </nav>
+        </aside>
+
+        <main class="content">
+            <header class="top-bar">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="user-info">
+                    <span class="status-dot"></span>
+                    Server Online
+                </div>
+            </header>
+
+            <section id="dashboard-section" class="tab-content active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <label>Active Devices</label>
+                        <h2 id="stat-devices">0</h2>
+                    </div>
+                    <div class="stat-card">
+                        <label>Current Version</label>
+                        <h2 id="stat-version">v1.4.2</h2>
+                    </div>
+                    <div class="stat-card">
+                        <label>Last Deployment</label>
+                        <h2 id="stat-date">--</h2>
+                    </div>
+                </div>
+
+                <div class="recent-activity">
+                    <h3>Recent Updates</h3>
+                    <div class="activity-list" id="recent-list">
+                        <!-- Activity items -->
+                    </div>
+                </div>
+            </section>
+
+            <section id="versions-section" class="tab-content">
+                <div class="section-header">
+                    <h2>Firmware Versions</h2>
+                    <button class="btn btn-primary" onclick="showUploadModal()">Upload New</button>
+                </div>
+                <div class="table-container">
+                    <table id="versions-table">
+                        <thead>
+                            <tr>
+                                <th>Version</th>
+                                <th>Release Date</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="devices-section" class="tab-content">
+                <div class="section-header">
+                    <h2>Device Management</h2>
+                </div>
+                <div class="table-container">
+                    <table id="devices-table">
+                        <thead>
+                            <tr>
+                                <th>Device Name</th>
+                                <th>IP Address</th>
+                                <th>Version</th>
+                                <th>Last Seen</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <h3>Upload Firmware</h3>
+            <form id="upload-form">
+                <div class="form-group">
+                    <label>Version Number (e.g. 1.4.3)</label>
+                    <input type="text" name="version" required placeholder="1.4.3">
+                </div>
+                <div class="form-group">
+                    <label>Firmware Binary (.bin)</label>
+                    <input type="file" name="file" accept=".bin" required>
+                </div>
+                <div class="form-group">
+                    <label>Release Notes</label>
+                    <textarea name="release_notes"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
