@@ -20,7 +20,7 @@ For comprehensive technical documentation, including architecture, hardware desi
 ### 🎮 Smart HomeKit Bridge
 *   **Unified Control**: Bridges local ESP-NOW Slaves into a single HomeKit interface.
 *   **Universal AC & Fan Engine**: Built-in support for major brands + Custom Learning via RMT.
-*   **Local Web Interface**: Access advanced configurations, view IR Dashboards, and manage Wi-Fi via `http://lampac.local`.
+*   **Local Web Interface**: Access advanced configurations, view IR Dashboards, and manage Wi-Fi via `http://nexusir-xxxx.local` (where xxxx are last 4 digits of MAC).
 
 ### ⚡ ESP-NOW Master/Slave
 *   **Scalable**: Master node relays state commands; Slaves translate state to IR pulses.
@@ -54,7 +54,7 @@ For comprehensive technical documentation, including architecture, hardware desi
 
 ### iOS (HomeKit Bridge + Captive Portal)
 1.  Power on device (LED breathes **Cyan**).
-2.  Connect to `Lamp-Setup-XXXX` WiFi network.
+2.  Connect to `NexusIR-Setup-XXXX` WiFi network.
 3.  Captive portal auto-opens for WiFi configuration.
 4.  After WiFi connection, add device in Apple Home app using the pairing code `111-22-333` (Setup ID: `LP4C`).
 5.  All enabled devices (AC, Fan, Temp, LEDs 1-5) will automatically appear as bridged accessories.
@@ -68,10 +68,10 @@ The Web UI is **DISABLED by default** to save resources.
 **To Enable (Android):**
 1.  Open ESP RainMaker App.
 2.  Toggle **"WebUI Config Mode"** to ON.
-3.  Visit `http://lampac.local` in browser.
+3.  Visit `http://nexusir-xxxx.local` in browser.
 
 **To Enable (iOS):**
-*   Web UI is available at `http://lampac.local` when connected to the same network.
+*   Web UI is available at `http://nexusir-xxxx.local` when connected to the same network.
 
 ---
 
