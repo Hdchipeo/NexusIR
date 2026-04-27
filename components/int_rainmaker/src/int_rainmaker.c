@@ -2,14 +2,14 @@
 
 #if CONFIG_LAMP_PLATFORM_ANDROID
 
-#include "goku_ac.h"
-#include "goku_data.h"
-#include "goku_ir_app.h"
-#include "goku_rainmaker.h"
+#include "mgr_ac_logic.h"
+#include "svc_nvs.h"
+#include "svc_ota.h"
+#include "int_rainmaker.h"
 #if CONFIG_APP_LED_CONTROL
-#include "goku_led.h"
+#include "drv_led.h"
 #endif
-#include "goku_wifi.h"
+#include "svc_wifi.h"
 #include "ir_engine.h"
 #include <ctype.h>
 
@@ -26,7 +26,7 @@
 #include <math.h>
 #include <string.h>
 
-static const char *TAG = "goku_rainmaker";
+static const char *TAG = "nexus_rainmaker";
 #define PARAM_CUSTOM_BRAND_NAME "Custom Brand Name"
 #define PARAM_WEBUI_MODE "WebUI Config Mode"
 

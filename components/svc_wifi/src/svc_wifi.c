@@ -49,6 +49,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
   } else if (event_base == WIFI_EVENT &&
              event_id == WIFI_EVENT_STA_DISCONNECTED) {
     if (s_reconnect) {
+      vTaskDelay(pdMS_TO_TICKS(5000)); // 5s backoff to reduce heat
       esp_wifi_connect();
 #if CONFIG_APP_LED_CONTROL
       drv_led_set_state(DRV_LED_WIFI_CONN);
@@ -132,7 +133,9 @@ esp_err_t svc_wifi_start(void *pop_info) {
       strlcpy((char *)wifi_config.sta.password, password,
               sizeof(wifi_config.sta.password));
 
+      ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
       ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+      ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_MIN_MODEM)); // Power save for heat reduction
       ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
       ESP_ERROR_CHECK(esp_wifi_start());
     } else {

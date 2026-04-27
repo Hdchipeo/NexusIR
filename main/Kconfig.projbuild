@@ -597,7 +597,7 @@ menu "OTA Configuration"
 
     config OTA_SERVER_URL
         string "OTA Server URL"
-        default "https://salty-mouth.surge.sh"
+        default "http://Mac-mini-cua-ang.local:5555"
         depends on APP_OTA_ENABLE
 
     config OTA_CHECK_INTERVAL

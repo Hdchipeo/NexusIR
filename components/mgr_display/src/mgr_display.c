@@ -41,6 +41,10 @@ void mgr_display_update_ui_sensor(float temp, float hum);
 void mgr_display_show_ui_notification(const char *device_name,
                                       const char *status);
 
+void mgr_display_activity_tick(void) {
+  gpio_set_level(LCD_GPIO_LED, 1); // Always ON
+}
+
 static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area,
                           lv_color_t *color_map) {
   esp_lcd_panel_draw_bitmap(panel_handle, area->x1, area->y1, area->x2 + 1,
@@ -65,11 +69,15 @@ static void display_task(void *arg) {
     } else {
       ESP_LOGE(TAG, "CRITICAL: Display task blocked for 1000ms!");
     }
-    // Cap delay to prevent display_task sleeping forever
+    // Keep backlight always ON
+    gpio_set_level(LCD_GPIO_LED, 1);
+
+    // Cap delay to prevent display_task sleeping forever, but allow enough for
+    // power saving
     if (task_delay_ms < 10)
       task_delay_ms = 10;
-    if (task_delay_ms > 30)
-      task_delay_ms = 30;
+    if (task_delay_ms > 500)
+      task_delay_ms = 500;
     vTaskDelay(pdMS_TO_TICKS(task_delay_ms));
   }
 }
@@ -168,6 +176,8 @@ esp_err_t mgr_display_init(void) {
   xTaskCreate(lv_tick_task, "lvgl_tick", 2048, NULL, 5, NULL);
   xTaskCreate(display_task, "display_task", 8192, NULL, 3, NULL);
 
+  mgr_display_activity_tick(); // Initialize activity timer
+
   return ESP_OK;
 }
 
@@ -202,6 +212,7 @@ void mgr_display_update_ui_weather_code_safe(int code) {
   if (mgr_display_lock(1000)) {
     mgr_display_update_ui_weather_code(code);
     mgr_display_unlock();
+    mgr_display_activity_tick();
   }
 }
 
@@ -221,6 +232,7 @@ void mgr_display_show_ui_notification_safe(const char *device_name,
     ESP_LOGI(TAG, "UI Notify: [%s] -> %s", device_name, status);
     mgr_display_show_ui_notification(device_name, status);
     mgr_display_unlock();
+    mgr_display_activity_tick();
   } else {
     ESP_LOGW(TAG, "UI Notify SKIPPED: lock timeout");
   }

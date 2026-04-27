@@ -13,3 +13,7 @@ dist/
 idflint.log
 .cache/
 
+# OTA Server
+ota_server/__pycache__/
+ota_server/ota.db
+ota_server/uploads/
