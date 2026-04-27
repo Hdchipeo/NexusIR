@@ -1,0 +1,60 @@
+menu "LCD Display Configuration"
+
+    config APP_LCD_ENABLE
+        bool "Enable 1.28\" GC9A01 LCD Support"
+        default n
+        select LV_FONT_MONTSERRAT_14
+        select LV_FONT_MONTSERRAT_18
+        select LV_FONT_MONTSERRAT_24
+        select LV_FONT_MONTSERRAT_28
+        select LV_FONT_MONTSERRAT_48
+        help
+            Enable support for the 1.28 inch 240x240 circular TFT LCD with GC9A01 driver.
+
+    config APP_LCD_BACKLIGHT_GPIO
+        int "LCD Backlight (LED) GPIO"
+        default 14
+        depends on APP_LCD_ENABLE
+
+    config APP_LCD_CS_GPIO
+        int "LCD CS GPIO"
+        default 47
+        depends on APP_LCD_ENABLE
+
+    config APP_LCD_DC_GPIO
+        int "LCD DC GPIO"
+        default 38
+        depends on APP_LCD_ENABLE
+
+    config APP_LCD_RST_GPIO
+        int "LCD Reset (RES) GPIO"
+        default 39
+        depends on APP_LCD_ENABLE
+
+    config APP_LCD_MOSI_GPIO
+        int "LCD SDA (MOSI) GPIO"
+        default 40
+        depends on APP_LCD_ENABLE
+
+    config APP_LCD_SCLK_GPIO
+        int "LCD SCL (SCLK) GPIO"
+        default 41
+        depends on APP_LCD_ENABLE
+
+    config APP_LCD_H_RES
+        int "LCD Horizontal Resolution"
+        default 240
+        depends on APP_LCD_ENABLE
+
+    config APP_LCD_V_RES
+        int "LCD Vertical Resolution"
+        default 240
+        depends on APP_LCD_ENABLE
+
+    config APP_LCD_SPI_HOST
+        int "SPI Host ID (0=SPI2_HOST, 1=SPI3_HOST)"
+        default 0
+        range 0 1
+        depends on APP_LCD_ENABLE
+
+endmenu

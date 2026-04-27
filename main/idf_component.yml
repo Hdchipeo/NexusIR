@@ -6,3 +6,6 @@ dependencies:
 
   espressif/aht20: ^2.0.0
   espressif/qrcode: ^0.1.0
+  lvgl/lvgl: "^8.3"
+  espressif/esp_lcd_gc9a01: "^1.0.0"
+

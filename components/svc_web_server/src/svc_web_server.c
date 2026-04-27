@@ -544,6 +544,7 @@ static esp_err_t api_rename_handler(httpd_req_t *req) {
   return ESP_OK;
 }
 
+#if CONFIG_APP_OTA_ENABLE
 static esp_err_t api_ota_check_handler(httpd_req_t *req) {
   char remote_ver_str[32] = {0};
   char response[256];
@@ -594,6 +595,7 @@ static esp_err_t api_ota_start_handler(httpd_req_t *req) {
   }
   return ESP_OK;
 }
+#endif
 
 static esp_err_t api_wifi_config_handler(httpd_req_t *req) {
   char *buf;
@@ -1454,6 +1456,7 @@ esp_err_t svc_web_start(void) {
     REG_URI(&delete_key);
     REG_URI(&rename_key);
 
+#if CONFIG_APP_OTA_ENABLE
     // OTA
     httpd_uri_t ota_check_uri = {.uri = "/api/ota/check",
                                  .method = HTTP_GET,
@@ -1463,6 +1466,7 @@ esp_err_t svc_web_start(void) {
                                  .method = HTTP_POST,
                                  .handler = api_ota_start_handler};
     REG_URI(&ota_start_uri);
+#endif
 
     REG_URI(&wifi_config);
     REG_URI(&wifi_scan);

@@ -209,12 +209,13 @@ esp_err_t svc_wifi_get_scan_results(wifi_ap_record_t **ap_list,
   bool was_connected = svc_wifi_is_connected();
 
   if (!was_connected) {
+    ESP_LOGI(TAG, "Stopping reconnect loop for scan...");
     // Disable auto-reconnect to prevent interference during scan
     s_reconnect = false;
 
     // Disconnect to ensure we are not in "connecting" state which blocks scan
     esp_wifi_disconnect();
-    vTaskDelay(pdMS_TO_TICKS(100)); // Give time for state transition
+    vTaskDelay(pdMS_TO_TICKS(500)); // Give more time for state transition
   }
 
   wifi_scan_config_t scan_config = {
