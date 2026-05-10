@@ -11,6 +11,7 @@
 
 #include "svc_espnow.h"
 #include "drv_led.h"
+#include "mgr_display.h"
 
 static const char *TAG = "svc_espnow";
 
@@ -106,9 +107,9 @@ void svc_espnow_register_relay_handler(espnow_relay_handler_t handler) {
   s_relay_handler = handler;
 }
 
-#if CONFIG_APP_ESPNOW_SLAVE_ENABLE
 static void espnow_recv_cb(const esp_now_recv_info_t *recv_info,
                            const uint8_t *data, int len) {
+  mgr_display_wake();
   if (len != sizeof(espnow_packet_t)) {
     ESP_LOGW(TAG, "Received invalid ESP-NOW packet size: %d", len);
     return;
@@ -160,7 +161,6 @@ static void espnow_recv_cb(const esp_now_recv_info_t *recv_info,
     }
   }
 }
-#endif
 
 static bool parse_mac_address(const char *str, uint8_t *mac) {
   if (!str || strlen(str) != 17)
@@ -253,10 +253,8 @@ esp_err_t svc_espnow_init(void) {
 
   ESP_ERROR_CHECK(esp_now_init());
 
-#if CONFIG_APP_ESPNOW_SLAVE_ENABLE
   ESP_ERROR_CHECK(esp_now_register_recv_cb(espnow_recv_cb));
-  ESP_LOGI(TAG, "ESP-NOW Slave listener active.");
-#endif
+  ESP_LOGI(TAG, "ESP-NOW listener active.");
 
   // Default peer from config
   if (!parse_mac_address(CONFIG_APP_ESPNOW_PEER_MAC, s_target_mac)) {

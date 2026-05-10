@@ -5,6 +5,7 @@
 #include "mgr_ir_protocols.h" // Required for mgr_ir_send_key
 #include "nvs.h"
 #include "nvs_flash.h"
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,7 +27,7 @@ static ir_ac_state_t g_ac_state = {.power = false,
                                    .swing_v = 0, // Off
                                    .swing_h = 0};
 
-static ac_brand_t g_ac_brand = AC_BRAND_SAMSUNG;
+static ac_brand_t g_ac_brand = AC_BRAND_CUSTOM;
 
 // Custom brand support
 static char g_custom_brand_name[32] = {0};
@@ -135,7 +136,6 @@ void mgr_ac_init(void) {
     ESP_LOGW(TAG, "Using default AC state");
   }
 
-
   ESP_LOGI(TAG, "AC initialized: Brand=%d, Custom=%d, Power=%d", g_ac_brand,
            g_is_custom_brand, g_ac_state.power);
 }
@@ -179,17 +179,18 @@ const char *mgr_ac_get_custom_brand(void) {
 
 bool mgr_ac_is_custom_brand(void) { return g_is_custom_brand; }
 
-static void send_custom_key_suffix(const char *suffix) {
-  char short_brand[9] = {0};
+static void send_custom_key_suffix(const char *brand, const char *suffix) {
+  char short_brand[16] = {0};
   int idx = 0;
-  for (int i = 0; g_custom_brand_name[i] && idx < 8; i++) {
-    char c = g_custom_brand_name[i];
-    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
-      short_brand[idx++] = c;
+  for (int i = 0; brand[i] && idx < 15; i++) {
+    char c = brand[i];
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+        (c >= '0' && c <= '9')) {
+      short_brand[idx++] = toupper((int)c);
     }
   }
 
-  char key[16];
+  char key[32];
   snprintf(key, sizeof(key), "A_%s_%s", short_brand, suffix);
 
   // Try sending
@@ -207,46 +208,63 @@ void mgr_ac_set_bridge_cb(mgr_ac_bridge_cb_t cb) { s_bridge_cb = cb; }
 esp_err_t mgr_ac_send(void) {
   ESP_LOGI(TAG, "Syncing state via callback if set");
   if (s_bridge_cb) {
-    s_bridge_cb(&g_ac_state, g_ac_brand,
-                g_is_custom_brand ? g_custom_brand_name : NULL);
+    s_bridge_cb(&g_ac_state, 0,
+                g_is_custom_brand ? g_custom_brand_name : "AC");
   }
 
-  if (g_is_custom_brand) {
-    ESP_LOGI(TAG, "Sending Custom Brand AC: %s", g_custom_brand_name);
-    
-    // 1. Power Logic: Always send if triggered
-    if (g_ac_state.power) {
-      send_custom_key_suffix(mgr_ir_send_key_exists("A_", g_custom_brand_name, "ON") ? "ON" : "PWR");
-    } else {
-      send_custom_key_suffix(mgr_ir_send_key_exists("A_", g_custom_brand_name, "OFF") ? "OFF" : "PWR");
-    }
+  const char *dev_name = g_is_custom_brand ? g_custom_brand_name : "AC";
 
-    if (g_ac_state.power) {
-      // 2. Mode Logic
-      if (g_ac_state.mode != g_last_sent_state.mode) {
-        send_custom_key_suffix("MOD");
-      }
-      
-      // 3. Temp Logic
-      if (g_ac_state.temp != g_last_sent_state.temp) {
-        char temp_suffix[8];
-        snprintf(temp_suffix, sizeof(temp_suffix), "T%d", g_ac_state.temp);
-        send_custom_key_suffix(temp_suffix);
-      }
-      
-      // 4. Fan Logic
-      if (g_ac_state.fan != g_last_sent_state.fan) {
-        send_custom_key_suffix("FAN");
-      }
-    }
-    
-    // Update last state
-    memcpy(&g_last_sent_state, &g_ac_state, sizeof(ir_ac_state_t));
-    return ESP_OK;
-  }
-
-  // Preset brand
-  ESP_LOGI(TAG, "Sending AC Command: Brand=%d, P=%d, M=%d, T=%d", g_ac_brand,
+  ESP_LOGI(TAG, "Sending AC Command for %s: P=%d, M=%d, T=%d", dev_name,
            g_ac_state.power, g_ac_state.mode, g_ac_state.temp);
-  return mgr_ir_send_ac_state((int)g_ac_brand, &g_ac_state);
+
+  // Matrix Capture Support (Primary Strategy)
+  if (mgr_ir_matrix_exists(dev_name)) {
+    int index = 0;
+    if (!g_ac_state.power) {
+      index = 0; // Off
+    } else {
+      // Map 16-30C to index 1-15
+      index = g_ac_state.temp - 16 + 1;
+      if (index < 1)
+        index = 1;
+      if (index > 15)
+        index = 15;
+    }
+    ESP_LOGI(TAG, "Matrix Match! Sending entry %d for %s", index, dev_name);
+    return mgr_ir_send_from_matrix(dev_name, index);
+  }
+
+  // Legacy Key Suffix Fallback (for single keys like A_LivingRoom_ON)
+  if (g_ac_state.power) {
+    send_custom_key_suffix(
+        dev_name, mgr_ir_send_key_exists("A_", dev_name, "ON") ? "ON" : "PWR");
+  } else {
+    send_custom_key_suffix(
+        dev_name,
+        mgr_ir_send_key_exists("A_", dev_name, "OFF") ? "OFF" : "PWR");
+  }
+  return ESP_OK;
+
+  if (g_ac_state.power) {
+    // Mode Logic
+    if (g_ac_state.mode != g_last_sent_state.mode) {
+      send_custom_key_suffix(dev_name, "MOD");
+    }
+
+    // Temp Logic
+    if (g_ac_state.temp != g_last_sent_state.temp) {
+      char temp_suffix[8];
+      snprintf(temp_suffix, sizeof(temp_suffix), "T%d", g_ac_state.temp);
+      send_custom_key_suffix(dev_name, temp_suffix);
+    }
+
+    // Fan Logic
+    if (g_ac_state.fan != g_last_sent_state.fan) {
+      send_custom_key_suffix(dev_name, "FAN");
+    }
+  }
+
+  // Update last state
+  memcpy(&g_last_sent_state, &g_ac_state, sizeof(ir_ac_state_t));
+  return ESP_OK;
 }

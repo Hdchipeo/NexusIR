@@ -19,13 +19,7 @@ typedef enum {
   APP_IR_CMD_MAX
 } mgr_ir_cmd_t;
 
-/**
- * @brief Send AC state
- * @param brand AC brand
- * @param state AC state
- * @return esp_err_t
- */
-esp_err_t mgr_ir_send_ac_state(int brand, const void *state);
+// Note: mgr_ir_send_ac_state removed. Use mgr_ir_send_from_matrix instead.
 
 /**
  * @brief Initialize IR Application
@@ -121,3 +115,28 @@ esp_err_t mgr_ir_send_raw(const uint16_t *durations, size_t count);
  * @return true if key exists
  */
 bool mgr_ir_send_key_exists(const char *prefix, const char *brand, const char *suffix);
+/**
+ * @brief Save the captured IR signal to a Matrix file (SPIFFS)
+ * 
+ * @param dev_id Device identifier (used for filename)
+ * @param index Index in the matrix (0=Off, 1=16C, ..., 15=30C)
+ * @return esp_err_t 
+ */
+esp_err_t mgr_ir_save_to_matrix(const char *dev_id, int index);
+
+/**
+ * @brief Send an IR signal from a Matrix file
+ * 
+ * @param dev_id Device identifier
+ * @param index Index in the matrix
+ * @return esp_err_t 
+ */
+esp_err_t mgr_ir_send_from_matrix(const char *dev_id, int index);
+
+/**
+ * @brief Check if a Matrix file exists for a device
+ * 
+ * @param dev_id Device identifier
+ * @return true if exists
+ */
+bool mgr_ir_matrix_exists(const char *dev_id);

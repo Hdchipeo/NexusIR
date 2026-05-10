@@ -67,6 +67,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
              IP2STR(&event->ip_info.ip), s_reconnect_count,
              event->ip_changed);
     xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
+    esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
 
     // Initialize SNTP once we have internet
     init_sntp();
@@ -187,6 +188,7 @@ esp_err_t svc_wifi_start(void *pop_info) {
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_MIN_MODEM));
   }
 #endif
 

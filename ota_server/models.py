@@ -20,5 +20,8 @@ class Device(Base):
     device_name = Column(String)
     last_ip = Column(String)
     current_version = Column(String)
+    target_version_id = Column(Integer, ForeignKey("versions.id"), nullable=True)
     last_seen = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="online") # online, offline, updating
+
+    target_version = relationship("Version")

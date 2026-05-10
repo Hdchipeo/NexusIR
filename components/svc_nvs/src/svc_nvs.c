@@ -109,3 +109,61 @@ cJSON *svc_nvs_get_ir_keys(void) {
   nvs_release_iterator(it);
   return list;
 }
+
+esp_err_t svc_nvs_load_custom_brands(cJSON **brands_array) {
+  nvs_handle_t nvs;
+  esp_err_t err = nvs_open("storage", NVS_READONLY, &nvs);
+  if (err != ESP_OK) {
+    *brands_array = cJSON_CreateArray();
+    return ESP_OK; // No brands yet
+  }
+
+  size_t required_size = 0;
+  err = nvs_get_str(nvs, "custom_brands", NULL, &required_size);
+  if (err == ESP_ERR_NVS_NOT_FOUND) {
+    nvs_close(nvs);
+    *brands_array = cJSON_CreateArray();
+    return ESP_OK;
+  }
+
+  char *json_str = malloc(required_size);
+  if (!json_str) {
+    nvs_close(nvs);
+    *brands_array = cJSON_CreateArray();
+    return ESP_ERR_NO_MEM;
+  }
+
+  nvs_get_str(nvs, "custom_brands", json_str, &required_size);
+  nvs_close(nvs);
+
+  *brands_array = cJSON_Parse(json_str);
+  free(json_str);
+
+  if (*brands_array == NULL) {
+    *brands_array = cJSON_CreateArray();
+  }
+
+  return ESP_OK;
+}
+
+esp_err_t svc_nvs_save_custom_brands(cJSON *brands_array) {
+  nvs_handle_t nvs;
+  esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs);
+  if (err != ESP_OK)
+    return err;
+
+  char *json_str = cJSON_PrintUnformatted(brands_array);
+  if (!json_str) {
+    nvs_close(nvs);
+    return ESP_ERR_NO_MEM;
+  }
+
+  err = nvs_set_str(nvs, "custom_brands", json_str);
+  free(json_str);
+
+  if (err == ESP_OK) {
+    nvs_commit(nvs);
+  }
+  nvs_close(nvs);
+  return err;
+}

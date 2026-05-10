@@ -23,6 +23,7 @@
 #include "svc_wifi.h"
 #include "sys_mem.h"
 #include <ctype.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -59,9 +60,6 @@ static void url_decode(char *dst, const char *src) {
 
 static httpd_handle_t server = NULL;
 
-/* -------------------------------------------------------------------------
- * Filesystem Initialization
- * ------------------------------------------------------------------------- */
 static esp_err_t init_fs(void) {
   esp_vfs_spiffs_conf_t conf = {.base_path = MOUNT_POINT,
                                 .partition_label = "storage",
@@ -69,15 +67,30 @@ static esp_err_t init_fs(void) {
                                 .format_if_mount_failed = true};
   esp_err_t ret = esp_vfs_spiffs_register(&conf);
   if (ret != ESP_OK) {
-    if (ret == ESP_FAIL) {
-      ESP_LOGE(TAG, "Failed to mount or format filesystem");
-    } else if (ret == ESP_ERR_NOT_FOUND) {
-      ESP_LOGE(TAG, "Failed to find SPIFFS partition");
-    } else {
-      ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
-    }
-    return ESP_FAIL;
+    return ret;
   }
+
+  // Cleanup .tmp files to reclaim space
+  DIR *dir = opendir(MOUNT_POINT);
+  if (dir) {
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+      char full_path[512];
+      snprintf(full_path, sizeof(full_path), "%s/%s", MOUNT_POINT, ent->d_name);
+      
+      if (strstr(ent->d_name, ".tmp")) {
+        unlink(full_path);
+        ESP_LOGI(TAG, "Cleaned up stale temp file: %s", full_path);
+      } else {
+        struct stat st;
+        if (stat(full_path, &st) == 0) {
+           ESP_LOGI(TAG, "File: %s (%ld bytes)", ent->d_name, st.st_size);
+        }
+      }
+    }
+    closedir(dir);
+  }
+
   size_t total = 0, used = 0;
   ret = esp_spiffs_info(conf.partition_label, &total, &used);
   if (ret == ESP_OK) {
@@ -162,27 +175,24 @@ static esp_err_t api_ac_control_handler(httpd_req_t *req) {
   if (cJSON_HasObjectItem(json, "fan"))
     state.fan = cJSON_GetObjectItem(json, "fan")->valueint;
 
-  // Handle brand (supports both int for preset, string for custom)
-  if (cJSON_HasObjectItem(json, "brand")) {
+  // Handle brand (supports both preset and custom)
+  if (cJSON_HasObjectItem(json, "is_custom") && cJSON_IsTrue(cJSON_GetObjectItem(json, "is_custom"))) {
+      if (cJSON_HasObjectItem(json, "custom_brand_name")) {
+          mgr_ac_set_custom_brand(cJSON_GetObjectItem(json, "custom_brand_name")->valuestring);
+      }
+  } else if (cJSON_HasObjectItem(json, "brand")) {
     cJSON *brand_item = cJSON_GetObjectItem(json, "brand");
-
     if (cJSON_IsNumber(brand_item)) {
-      // Preset brand (backward compatible)
-      int brand = brand_item->valueint;
-      mgr_ac_set_brand((ac_brand_t)brand);
-      ESP_LOGI(TAG, "Set preset AC brand: %d", brand);
+      mgr_ac_set_brand((ac_brand_t)brand_item->valueint);
     } else if (cJSON_IsString(brand_item)) {
-      // Custom brand
-      const char *custom_name = brand_item->valuestring;
-      mgr_ac_set_custom_brand(custom_name);
-      ESP_LOGI(TAG, "Set custom AC brand: %s", custom_name);
+      mgr_ac_set_custom_brand(brand_item->valuestring);
     }
   }
 
   mgr_ac_set_state(&state);
   mgr_ac_send();
 #if CONFIG_LAMP_PLATFORM_ANDROID
-  app_rainmaker_update_state(&state);
+  app_rainmaker_update_ac(&state);
 #endif
 
   cJSON_Delete(json);
@@ -271,7 +281,11 @@ static esp_err_t api_fan_control_handler(httpd_req_t *req) {
   if (cJSON_HasObjectItem(json, "swing"))
     state.swing = cJSON_GetObjectItem(json, "swing")->valueint;
 
-  if (cJSON_HasObjectItem(json, "brand")) {
+  if (cJSON_HasObjectItem(json, "is_custom") && cJSON_IsTrue(cJSON_GetObjectItem(json, "is_custom"))) {
+      if (cJSON_HasObjectItem(json, "custom_brand_name")) {
+          mgr_fan_set_custom_brand(cJSON_GetObjectItem(json, "custom_brand_name")->valuestring);
+      }
+  } else if (cJSON_HasObjectItem(json, "brand")) {
     cJSON *brand_item = cJSON_GetObjectItem(json, "brand");
     if (cJSON_IsNumber(brand_item)) {
       mgr_fan_set_brand((fan_brand_t)brand_item->valueint);
@@ -434,6 +448,38 @@ static esp_err_t api_learn_status_handler(httpd_req_t *req) {
   return ESP_OK;
 }
 
+static esp_err_t api_matrix_save_handler(httpd_req_t *req) {
+  char *buf;
+  size_t buf_len;
+  char dev_id_raw[64] = {0};
+  char dev_id[32] = {0};
+  char index_str[8] = {0};
+
+  buf_len = httpd_req_get_url_query_len(req) + 1;
+  if (buf_len > 1) {
+    buf = malloc(buf_len);
+    if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK) {
+      if (httpd_query_key_value(buf, "dev_id", dev_id_raw, sizeof(dev_id_raw)) == ESP_OK &&
+          httpd_query_key_value(buf, "index", index_str, sizeof(index_str)) == ESP_OK) {
+        
+        url_decode(dev_id, dev_id_raw);
+        int index = atoi(index_str);
+        ESP_LOGI(TAG, "API: Matrix Save Dev=%s, Index=%d", dev_id, index);
+        
+        if (mgr_ir_save_to_matrix(dev_id, index) == ESP_OK) {
+          httpd_resp_send(req, "Saved", HTTPD_RESP_USE_STRLEN);
+        } else {
+          httpd_resp_send_500(req);
+        }
+      }
+    }
+    free(buf);
+  } else {
+    httpd_resp_send_404(req);
+  }
+  return ESP_OK;
+}
+
 static esp_err_t api_save_handler(httpd_req_t *req) {
   char *buf;
   size_t buf_len;
@@ -448,6 +494,24 @@ static esp_err_t api_save_handler(httpd_req_t *req) {
         url_decode(key, key_raw);
         ESP_LOGI(TAG, "API: Save Key %s", key);
         if (mgr_ir_save_learned_result(key) == ESP_OK) {
+          // Auto-Config: Update logic brand name based on the learned key prefix
+          if (strncmp(key, "F_", 2) == 0) {
+              char dev_name[32] = {0};
+              char *underscore = strchr(key + 2, '_');
+              if (underscore) {
+                  memcpy(dev_name, key + 2, underscore - (key + 2));
+                  mgr_fan_set_custom_brand(dev_name);
+                  ESP_LOGI(TAG, "Auto-configured Fan brand to: %s", dev_name);
+              }
+          } else if (strncmp(key, "A_", 2) == 0) {
+              char dev_name[32] = {0};
+              char *underscore = strchr(key + 2, '_');
+              if (underscore) {
+                  memcpy(dev_name, key + 2, underscore - (key + 2));
+                  mgr_ac_set_custom_brand(dev_name);
+                  ESP_LOGI(TAG, "Auto-configured AC brand to: %s", dev_name);
+              }
+          }
           httpd_resp_send(req, "Saved", HTTPD_RESP_USE_STRLEN);
         } else {
           httpd_resp_send_500(req);
@@ -979,72 +1043,14 @@ static esp_err_t api_system_logs_clear_handler(httpd_req_t *req) {
  * ------------------------------------------------------------------------- */
 
 // Helper: Load custom brands from NVS
-static esp_err_t load_custom_brands(cJSON **brands_array) {
-  nvs_handle_t nvs;
-  esp_err_t err = nvs_open("storage", NVS_READONLY, &nvs);
-  if (err != ESP_OK) {
-    *brands_array = cJSON_CreateArray();
-    return ESP_OK; // No brands yet
-  }
 
-  size_t required_size = 0;
-  err = nvs_get_str(nvs, NVS_BRAND_KEY, NULL, &required_size);
-  if (err == ESP_ERR_NVS_NOT_FOUND) {
-    nvs_close(nvs);
-    *brands_array = cJSON_CreateArray();
-    return ESP_OK;
-  }
-
-  char *json_str = malloc(required_size);
-  if (!json_str) {
-    nvs_close(nvs);
-    *brands_array = cJSON_CreateArray();
-    return ESP_ERR_NO_MEM;
-  }
-
-  nvs_get_str(nvs, NVS_BRAND_KEY, json_str, &required_size);
-  nvs_close(nvs);
-
-  *brands_array = cJSON_Parse(json_str);
-  free(json_str);
-
-  if (*brands_array == NULL) {
-    *brands_array = cJSON_CreateArray();
-  }
-
-  return ESP_OK;
-}
-
-// Helper: Save custom brands to NVS
-static esp_err_t save_custom_brands(cJSON *brands_array) {
-  nvs_handle_t nvs;
-  esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs);
-  if (err != ESP_OK)
-    return err;
-
-  char *json_str = cJSON_PrintUnformatted(brands_array);
-  if (!json_str) {
-    nvs_close(nvs);
-    return ESP_ERR_NO_MEM;
-  }
-
-  err = nvs_set_str(nvs, NVS_BRAND_KEY, json_str);
-  free(json_str);
-
-  if (err == ESP_OK) {
-    nvs_commit(nvs);
-  }
-
-  nvs_close(nvs);
-  return err;
-}
 
 // Helper: Check if brand exists in array
 static bool brand_exists(cJSON *brands_array, const char *name) {
   cJSON *item = NULL;
   cJSON_ArrayForEach(item, brands_array) {
-    const char *brand_name = cJSON_GetStringValue(item);
-    if (brand_name && strcmp(brand_name, name) == 0) {
+    cJSON *n = cJSON_GetObjectItem(item, "name");
+    if (cJSON_IsString(n) && strcmp(n->valuestring, name) == 0) {
       return true;
     }
   }
@@ -1058,7 +1064,7 @@ static bool brand_exists(cJSON *brands_array, const char *name) {
 // GET /api/brand/list
 static void update_rainmaker_brands() {
   cJSON *brands = NULL;
-  load_custom_brands(&brands);
+  svc_nvs_load_custom_brands(&brands);
 
   size_t count = 0;
   char **brand_list = NULL;
@@ -1071,7 +1077,8 @@ static void update_rainmaker_brands() {
         int idx = 0;
         cJSON *item = NULL;
         cJSON_ArrayForEach(item, brands) {
-          brand_list[idx] = (char *)cJSON_GetStringValue(item);
+          cJSON *n = cJSON_GetObjectItem(item, "name");
+          brand_list[idx] = n ? n->valuestring : "Unknown";
           idx++;
         }
       } else {
@@ -1094,7 +1101,7 @@ static esp_err_t api_brand_list_handler(httpd_req_t *req) {
   ESP_LOGI(TAG, "API Brand List");
 
   cJSON *brands = NULL;
-  load_custom_brands(&brands);
+  svc_nvs_load_custom_brands(&brands);
 
   const char *json_str = cJSON_PrintUnformatted(brands);
   httpd_resp_set_type(req, "application/json");
@@ -1105,46 +1112,58 @@ static esp_err_t api_brand_list_handler(httpd_req_t *req) {
   return ESP_OK;
 }
 
-// POST /api/brand/add?name={name}
+// POST /api/brand/add?name={name}&type={type}
 static esp_err_t api_brand_add_handler(httpd_req_t *req) {
   ESP_LOGI(TAG, "API Brand Add");
 
   char query[128];
   if (httpd_req_get_url_query_str(req, query, sizeof(query)) != ESP_OK) {
-    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing name parameter");
+    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing parameters");
     return ESP_FAIL;
   }
 
   char name_raw[MAX_BRAND_NAME_LEN];
+  char type_raw[32];
+  char icon_raw[32] = {0};
   char name[MAX_BRAND_NAME_LEN];
-  if (httpd_query_key_value(query, "name", name_raw, sizeof(name_raw)) != ESP_OK) {
-    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing name parameter");
+  char type[32];
+  char icon[32] = {0};
+  
+  if (httpd_query_key_value(query, "name", name_raw, sizeof(name_raw)) != ESP_OK ||
+      httpd_query_key_value(query, "type", type_raw, sizeof(type_raw)) != ESP_OK) {
+    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing name or type");
     return ESP_FAIL;
+  }
+  if (httpd_query_key_value(query, "icon", icon_raw, sizeof(icon_raw)) == ESP_OK) {
+      url_decode(icon, icon_raw);
   }
   url_decode(name, name_raw);
-
+  url_decode(type, type_raw);
 
   cJSON *brands = NULL;
-  load_custom_brands(&brands);
+  svc_nvs_load_custom_brands(&brands);
 
-  // Check limit
   if (cJSON_GetArraySize(brands) >= MAX_BRANDS) {
     cJSON_Delete(brands);
-    httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
-                        "Max brands reached (20)");
+    httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Max brands reached");
     return ESP_FAIL;
   }
 
-  // Check duplicate
   if (brand_exists(brands, name)) {
     cJSON_Delete(brands);
     httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Brand already exists");
     return ESP_FAIL;
   }
 
-  // Add brand
-  cJSON_AddItemToArray(brands, cJSON_CreateString(name));
-  save_custom_brands(brands);
+  cJSON *new_brand = cJSON_CreateObject();
+  cJSON_AddStringToObject(new_brand, "name", name);
+  cJSON_AddStringToObject(new_brand, "type", type);
+  if (icon[0]) {
+      cJSON_AddStringToObject(new_brand, "icon", icon);
+  }
+  cJSON_AddItemToArray(brands, new_brand);
+  
+  svc_nvs_save_custom_brands(brands);
   update_rainmaker_brands();
   cJSON_Delete(brands);
 
@@ -1176,15 +1195,15 @@ static esp_err_t api_brand_rename_handler(httpd_req_t *req) {
 
 
   cJSON *brands = NULL;
-  load_custom_brands(&brands);
+  svc_nvs_load_custom_brands(&brands);
 
   // Find and rename
   bool found = false;
   cJSON *item = NULL;
   cJSON_ArrayForEach(item, brands) {
-    const char *brand_name = cJSON_GetStringValue(item);
-    if (brand_name && strcmp(brand_name, old_name) == 0) {
-      cJSON_SetValuestring(item, new_name);
+    cJSON *n = cJSON_GetObjectItem(item, "name");
+    if (cJSON_IsString(n) && strcmp(n->valuestring, old_name) == 0) {
+      cJSON_ReplaceItemInObject(item, "name", cJSON_CreateString(new_name));
       found = true;
       break;
     }
@@ -1196,7 +1215,7 @@ static esp_err_t api_brand_rename_handler(httpd_req_t *req) {
     return ESP_FAIL;
   }
 
-  save_custom_brands(brands);
+  svc_nvs_save_custom_brands(brands);
   update_rainmaker_brands();
   cJSON_Delete(brands);
 
@@ -1224,15 +1243,15 @@ static esp_err_t api_brand_delete_handler(httpd_req_t *req) {
 
 
   cJSON *brands = NULL;
-  load_custom_brands(&brands);
+  svc_nvs_load_custom_brands(&brands);
 
   // Find and delete
   int index = 0;
   bool found = false;
   cJSON *item = NULL;
   cJSON_ArrayForEach(item, brands) {
-    const char *brand_name = cJSON_GetStringValue(item);
-    if (brand_name && strcmp(brand_name, name) == 0) {
+    cJSON *n = cJSON_GetObjectItem(item, "name");
+    if (cJSON_IsString(n) && strcmp(n->valuestring, name) == 0) {
       cJSON_DeleteItemFromArray(brands, index);
       found = true;
       break;
@@ -1246,7 +1265,7 @@ static esp_err_t api_brand_delete_handler(httpd_req_t *req) {
     return ESP_FAIL;
   }
 
-  save_custom_brands(brands);
+  svc_nvs_save_custom_brands(brands);
   update_rainmaker_brands();
   cJSON_Delete(brands);
 
@@ -1340,6 +1359,36 @@ static esp_err_t api_system_stats_handler(httpd_req_t *req) {
   return ESP_OK;
 }
 
+static esp_err_t api_system_restart_handler(httpd_req_t *req) {
+  ESP_LOGI(TAG, "System Restart Requested");
+  httpd_resp_send(req, "Restarting...", HTTPD_RESP_USE_STRLEN);
+  vTaskDelay(pdMS_TO_TICKS(500));
+  esp_restart();
+  return ESP_OK;
+}
+
+
+static esp_err_t api_weather_handler(httpd_req_t *req) {
+  extern float svc_weather_get_temp(void);
+  extern const char* svc_weather_get_desc(void);
+
+  cJSON *root = cJSON_CreateObject();
+  cJSON_AddNumberToObject(root, "temp", svc_weather_get_temp());
+  cJSON_AddStringToObject(root, "condition", svc_weather_get_desc());
+
+  const char *json_str = cJSON_PrintUnformatted(root);
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
+  cJSON_Delete(root);
+  free((void *)json_str);
+  return ESP_OK;
+}
+
+static const httpd_uri_t api_stats = {.uri = "/api/stats",
+                                       .method = HTTP_GET,
+                                       .handler = api_system_stats_handler};
+static const httpd_uri_t system_restart = {
+    .uri = "/api/system/restart", .method = HTTP_POST, .handler = api_system_restart_handler};
 static const httpd_uri_t ir_list = {
     .uri = "/api/ir/list", .method = HTTP_GET, .handler = api_ir_list_handler};
 static const httpd_uri_t learn_start = {.uri = "/api/learn/start",
@@ -1440,7 +1489,9 @@ esp_err_t svc_web_start(void) {
   ESP_LOGE(TAG, "Fail reg %s: %d", (h)->uri, ret)
 
     // Specific API Handlers (Exact match first)
+    REG_URI(&api_stats);
     REG_URI(&system_stats);
+    REG_URI(&system_restart);
     REG_URI(&ir_list);
     REG_URI(&learn_start);
     REG_URI(&learn_stop);
@@ -1452,6 +1503,12 @@ esp_err_t svc_web_start(void) {
     REG_URI(&learn_status);
 
     REG_URI(&save_key);
+    
+    httpd_uri_t matrix_save = {.uri = "/api/matrix/save",
+                                .method = HTTP_POST,
+                                .handler = api_matrix_save_handler};
+    REG_URI(&matrix_save);
+
     REG_URI(&send_key);
     REG_URI(&delete_key);
     REG_URI(&rename_key);
@@ -1495,12 +1552,16 @@ esp_err_t svc_web_start(void) {
     REG_URI(&system_logs);
     REG_URI(&system_logs_clear);
 
-    // Custom Brand Management APIs
     static const httpd_uri_t brand_list_uri = {.uri = "/api/brand/list",
                                                .method = HTTP_GET,
                                                .handler =
                                                    api_brand_list_handler};
     REG_URI(&brand_list_uri);
+
+    static const httpd_uri_t weather_uri = {.uri = "/api/weather",
+                                            .method = HTTP_GET,
+                                            .handler = api_weather_handler};
+    REG_URI(&weather_uri);
 
     static const httpd_uri_t brand_add_uri = {.uri = "/api/brand/add",
                                               .method = HTTP_POST,
