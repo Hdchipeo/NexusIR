@@ -28,6 +28,11 @@ void mgr_display_update_ui_weather_code_safe(int code);
 void mgr_display_show_ui_notification_safe(const char *device_name, const char *status);
 void mgr_display_update_ui_time_safe(void);
 void mgr_display_activity_tick(void);
+<<<<<<< HEAD
+void mgr_display_wake(void);
+bool mgr_display_is_dimmed(void);
+=======
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 #else
 
@@ -39,6 +44,11 @@ static inline void mgr_display_update_ui_weather_code_safe(int code) {}
 static inline void mgr_display_show_ui_notification_safe(const char *device_name, const char *status) {}
 static inline void mgr_display_update_ui_time_safe(void) {}
 static inline void mgr_display_activity_tick(void) {}
+<<<<<<< HEAD
+static inline void mgr_display_wake(void) {}
+static inline bool mgr_display_is_dimmed(void) { return true; }
+=======
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 #endif // CONFIG_APP_LCD_ENABLE
 

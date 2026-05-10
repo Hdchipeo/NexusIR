@@ -1,10 +1,336 @@
 <!DOCTYPE html>
+<<<<<<< HEAD
+<html lang="vi">
+=======
 <html lang="en">
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<<<<<<< HEAD
+    <title>NexusIR Pro</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="style.css">
+    <script src="app.js" defer></script>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- TRANG CHỦ: ĐIỀU KHIỂN NHANH -->
+        <section id="view-home" class="tab-view active">
+            <h1>Chào mừng</h1>
+            <h2 id="weather-text">Đang cập nhật thời tiết...</h2>
+
+            <div class="bento-grid" id="home-controls">
+                <!-- Sẽ được render tự động từ app.js -->
+                <div class="card bento-full" style="padding:40px; text-align:center; color:var(--text-secondary)">
+                    <p>Đang tải thiết bị...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- THIẾT LẬP: QUẢN LÝ THIẾT BỊ & HỌC LỆNH -->
+        <section id="view-setup" class="tab-view">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+                <h1>Thiết bị</h1>
+                <button type="button" class="btn btn-circle" onclick="openAddModal()">
+                    <i data-lucide="plus" size="20"></i>
+                </button>
+            </div>
+            <h2>Quản lý và học lệnh hồng ngoại</h2>
+
+            <div id="device-list-container">
+                <!-- Danh sách thiết bị thật từ API -->
+            </div>
+        </section>
+
+        <!-- CÀI ĐẶT: HỆ THỐNG & KẾT NỐI -->
+        <section id="view-settings" class="tab-view">
+            <h1>Cài đặt</h1>
+            <h2>Hệ thống và kết nối</h2>
+
+            <h3>Trạng thái Hub</h3>
+            <div class="card bento-full" style="margin-bottom:15px; cursor: default; padding: 16px;">
+                <div class="card-label">NexusIR Gateway</div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:8px">
+                    <div id="status-dot" style="width:8px; height:8px; background:var(--success); border-radius:50%"></div>
+                    <span id="status-text" style="font-size:14px; color:var(--text-secondary)">Trực tuyến</span>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                <h3>Kết nối ESP-NOW</h3>
+                <button type="button" class="btn" style="padding: 6px 12px; font-size: 12px;" onclick="addNodePrompt()">
+                    <i data-lucide="plus" style="margin-right:4px; width:14px;"></i> Thêm Node
+                </button>
+            </div>
+
+            <div class="list-group" id="node-list">
+                <div class="list-item">
+                    <span style="color:var(--text-secondary); font-size:13px;">Đ đang tải...</span>
+                </div>
+            </div>
+
+            <div class="btn-group" style="margin-top:20px">
+                <button class="btn btn-danger" style="width:100%" onclick="restartHub()">Khởi động lại Hub</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- THANH ĐIỀU HƯỚNG DƯỚI CÙNG -->
+    <nav class="bottom-nav">
+        <a href="javascript:void(0)" id="nav-home" class="nav-item active" onclick="switchTab('home')">
+            <i data-lucide="layout-grid"></i>
+            <span>Trang chủ</span>
+        </a>
+        <a href="javascript:void(0)" id="nav-setup" class="nav-item" onclick="switchTab('setup')">
+            <i data-lucide="plus-circle"></i>
+            <span>Thiết bị</span>
+        </a>
+        <a href="javascript:void(0)" id="nav-settings" class="nav-item" onclick="switchTab('settings')">
+            <i data-lucide="settings"></i>
+            <span>Cài đặt</span>
+        </a>
+    </nav>
+
+    <!-- MODAL: CHỌN THIẾT BỊ MỚI -->
+    <div class="modal-overlay" id="modal-add" onclick="if(event.target === this) closeModal()">
+        <div class="modal-content">
+            <h2 style="color:var(--text-primary); text-align:center">Thêm thiết bị mới</h2>
+            <div class="bento-grid">
+                <div class="card" onclick="startWizard('AC')">
+                    <div class="card-icon"><i data-lucide="snowflake"></i></div>
+                    <div class="card-label">Điều hòa</div>
+                </div>
+                <div class="card" onclick="startWizard('FAN')">
+                    <div class="card-icon"><i data-lucide="wind"></i></div>
+                    <div class="card-label">Quạt</div>
+                </div>
+                <div class="card" onclick="startWizard('TV')">
+                    <div class="card-icon"><i data-lucide="tv"></i></div>
+                    <div class="card-label">Tivi</div>
+                </div>
+                <div class="card" onclick="startWizard('CUSTOM')">
+                    <div class="card-icon"><i data-lucide="layers"></i></div>
+                    <div class="card-label">Khác</div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-danger" style="margin-top:20px; width: 100%; border-radius: 15px;"
+                onclick="closeModal()">Hủy</button>
+        </div>
+    </div>
+
+    <!-- MODAL: ĐIỀU KHIỂN ĐIỀU HÒA -->
+    <div class="modal-overlay" id="modal-ac-control" onclick="if(event.target === this) closeModal()">
+        <div class="modal-content" style="text-align: center;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                <h2 id="ac-ctrl-title" style="margin:0">Điều hòa</h2>
+                <input type="checkbox" id="ac-power" class="switch" onchange="controlAC()">
+            </div>
+            
+            <div style="background:var(--bg-tertiary); border-radius: 50%; width: 180px; height: 180px; margin: 0 auto 30px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 10px solid var(--bg-secondary); box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                <span style="font-size: 14px; color: var(--text-secondary); font-weight: 600;">NHIỆT ĐỘ</span>
+                <span id="ac-temp-val" style="font-size: 64px; font-weight: 800; letter-spacing: -2px;">24</span>
+                <span style="font-size: 20px; font-weight: 600; margin-top: -10px;">°C</span>
+            </div>
+            
+            <div style="display:flex; justify-content: center; gap: 40px; margin-bottom: 40px;">
+                <button class="btn btn-circle" style="width: 60px; height: 60px; background: var(--bg-tertiary);" onclick="changeTemp(-1)">
+                    <i data-lucide="minus" size="28"></i>
+                </button>
+                <button class="btn btn-circle" style="width: 60px; height: 60px; background: var(--accent); color: white;" onclick="changeTemp(1)">
+                    <i data-lucide="plus" size="28"></i>
+                </button>
+            </div>
+            
+            <div class="bento-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                <button class="card mode-btn" id="ac-mode-1" style="padding: 15px; align-items: center;" onclick="setACMode(1)">
+                    <i data-lucide="snowflake" style="margin-bottom: 8px;"></i>
+                    <span style="font-size: 12px;">Làm mát</span>
+                </button>
+                <button class="card mode-btn" id="ac-mode-2" style="padding: 15px; align-items: center;" onclick="setACMode(2)">
+                    <i data-lucide="droplets" style="margin-bottom: 8px;"></i>
+                    <span style="font-size: 12px;">Hút ẩm</span>
+                </button>
+                <button class="card mode-btn" id="ac-mode-3" style="padding: 15px; align-items: center;" onclick="setACMode(3)">
+                    <i data-lucide="wind" style="margin-bottom: 8px;"></i>
+                    <span style="font-size: 12px;">Chỉ quạt</span>
+                </button>
+            </div>
+            
+            <button type="button" class="btn btn-danger" style="margin-top:20px; width: 100%; border-radius: 15px;"
+                onclick="closeModal()">Đóng</button>
+        </div>
+    </div>
+
+    <!-- MODAL: ĐIỀU KHIỂN QUẠT -->
+    <div class="modal-overlay" id="modal-fan-control" onclick="if(event.target === this) closeModal()">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 25px;">
+                <h2 id="fan-ctrl-title" style="margin:0">Quạt</h2>
+                <input type="checkbox" id="fan-power" class="switch" onchange="controlFan()">
+            </div>
+            
+            <h3>Tốc độ quạt</h3>
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                <button class="btn speed-btn" id="fan-speed-1" onclick="setFanSpeed(1)">1</button>
+                <button class="btn speed-btn" id="fan-speed-2" onclick="setFanSpeed(2)">2</button>
+                <button class="btn speed-btn" id="fan-speed-3" onclick="setFanSpeed(3)">3</button>
+            </div>
+            
+            <div class="list-group">
+                <div class="list-item">
+                    <span>Đảo gió (Swing)</span>
+                    <input type="checkbox" id="fan-swing" class="switch" onchange="controlFan()">
+                </div>
+            </div>
+            
+            <button type="button" class="btn btn-danger" style="margin-top:20px; width: 100%; border-radius: 15px;"
+                onclick="closeModal()">Đóng</button>
+        </div>
+    </div>
+
+    <!-- MODAL: ĐIỀU KHIỂN TV -->
+    <div class="modal-overlay" id="modal-tv-control" onclick="if(event.target === this) closeModal()">
+        <div class="modal-content" style="text-align: center;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 25px;">
+                <h2 id="tv-ctrl-title" style="margin:0">Tivi</h2>
+                <button class="btn btn-circle" style="background:var(--danger); color:white; width: 45px; height: 45px;" onclick="sendTVCommand('PWR')">
+                    <i data-lucide="power" size="24"></i>
+                </button>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <div class="card" style="padding: 15px; text-align: center;">
+                    <span style="font-size: 14px; color: var(--text-secondary); display:block; margin-bottom: 10px;">ÂM LƯỢNG</span>
+                    <div style="display:flex; justify-content:space-between;">
+                        <button class="btn btn-circle" style="background:var(--bg-tertiary);" onclick="sendTVCommand('VOL_DOWN')">
+                            <i data-lucide="minus" size="20"></i>
+                        </button>
+                        <button class="btn btn-circle" style="background:var(--accent); color:white;" onclick="sendTVCommand('VOL_UP')">
+                            <i data-lucide="plus" size="20"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card" style="padding: 15px; text-align: center;">
+                    <span style="font-size: 14px; color: var(--text-secondary); display:block; margin-bottom: 10px;">KÊNH</span>
+                    <div style="display:flex; justify-content:space-between;">
+                        <button class="btn btn-circle" style="background:var(--bg-tertiary);" onclick="sendTVCommand('CH_DOWN')">
+                            <i data-lucide="chevron-down" size="20"></i>
+                        </button>
+                        <button class="btn btn-circle" style="background:var(--accent); color:white;" onclick="sendTVCommand('CH_UP')">
+                            <i data-lucide="chevron-up" size="20"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn" style="width:100%; margin-bottom: 20px;" onclick="sendTVCommand('MUTE')">
+                <i data-lucide="volume-x" style="margin-right:8px;"></i> Tắt tiếng
+            </button>
+            
+            <button type="button" class="btn btn-danger" style="width: 100%; border-radius: 15px;" onclick="closeModal()">Đóng</button>
+        </div>
+    </div>
+
+    <!-- MODAL: ĐIỀU KHIỂN THIẾT BỊ KHÁC (CUSTOM) -->
+    <div class="modal-overlay" id="modal-custom-control" onclick="if(event.target === this) closeModal()">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                <h2 id="custom-ctrl-title" style="margin:0">Thiết bị khác</h2>
+                <button class="btn btn-circle" style="background:var(--accent); color:white; width: 40px; height: 40px;" onclick="openAddCustomKeyPrompt()">
+                    <i data-lucide="plus" size="20"></i>
+                </button>
+            </div>
+            <p style="color:var(--text-secondary); font-size:13px; margin-bottom:20px; text-align:center;">Bấm vào nút để điều khiển, bấm giữ để Sửa/Xóa.</p>
+            
+            <div id="custom-keys-container" style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 40vh; overflow-y:auto; margin-bottom:20px;">
+                <!-- Rendered dynamically via JS -->
+                <p style="text-align:center; grid-column: span 2;">Đang tải nút bấm...</p>
+            </div>
+            
+            <button type="button" class="btn btn-danger" style="width: 100%; border-radius: 15px;" onclick="closeModal()">Đóng</button>
+        </div>
+    </div>
+
+    <!-- MODAL: TRÌNH HƯỚNG DẪN HỌC LỆNH -->
+    <div class="modal-overlay" id="modal-wizard">
+        <div class="modal-content">
+            <div id="wizard-step-1">
+                <h2 style="color:var(--text-primary)">Thiết lập <span id="wiz-type">AC</span></h2>
+                <input type="text" id="dev-name" class="btn"
+                    style="width:100%; text-align:left; background:var(--bg-tertiary); margin-bottom: 20px; padding: 14px; border-radius: 14px;"
+                    placeholder="Tên thiết bị (ví dụ: Phòng ngủ)">
+                <div id="custom-icon-picker" style="display:none; margin-bottom: 20px;">
+                    <p style="font-size:14px; color:var(--text-secondary); margin-bottom:10px;">Chọn biểu tượng:</p>
+                    <div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px;">
+                        <button type="button" class="btn btn-circle icon-select" style="border: 2px solid var(--accent); opacity: 1;" data-icon="layers" onclick="selectIcon('layers')"><i data-lucide="layers"></i></button>
+                        <button type="button" class="btn btn-circle icon-select" style="opacity: 0.5;" data-icon="lightbulb" onclick="selectIcon('lightbulb')"><i data-lucide="lightbulb"></i></button>
+                        <button type="button" class="btn btn-circle icon-select" style="opacity: 0.5;" data-icon="speaker" onclick="selectIcon('speaker')"><i data-lucide="speaker"></i></button>
+                        <button type="button" class="btn btn-circle icon-select" style="opacity: 0.5;" data-icon="video" onclick="selectIcon('video')"><i data-lucide="video"></i></button>
+                        <button type="button" class="btn btn-circle icon-select" style="opacity: 0.5;" data-icon="box" onclick="selectIcon('box')"><i data-lucide="box"></i></button>
+                        <button type="button" class="btn btn-circle icon-select" style="opacity: 0.5;" data-icon="aperture" onclick="selectIcon('aperture')"><i data-lucide="aperture"></i></button>
+                        <button type="button" class="btn btn-circle icon-select" style="opacity: 0.5;" data-icon="coffee" onclick="selectIcon('coffee')"><i data-lucide="coffee"></i></button>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary" style="width:100%" onclick="proceedToLearn()">Tiếp theo</button>
+                </div>
+            </div>
+            <div id="wizard-step-2" style="display:none">
+                <h2 style="color:var(--text-primary); text-align:center" id="wiz-title">Học lệnh: <span id="current-key" style="color:var(--accent)">Nguồn</span>
+                </h2>
+                
+                <div id="ac-matrix-ui" style="display:none; text-align:center; padding: 0 10px;">
+                    <div class="progress-bar-container">
+                        <div id="learning-progress" class="progress-bar-fill"></div>
+                    </div>
+                    <p style="font-size:13px; color:var(--text-secondary); margin: 0;">Tiến trình: <span id="matrix-progress-text" style="font-weight:600">0/15</span></p>
+                </div>
+
+                <div class="learn-step">
+                    <div class="learn-pulse">
+                        <i data-lucide="radio" size="32"></i>
+                    </div>
+                    <p style="color:var(--text-secondary); font-size: 14px; margin-bottom: 5px;" id="instruction-main">Hướng Remote vào Hub và thực hiện:</p>
+                    <p style="padding: 0 10px;"><b id="key-instruction" style="font-size: 16px; color: var(--text-primary);">Bấm nút Nguồn</b></p>
+                </div>
+                <div class="btn-group">
+                    <button type="button" id="btn-skip" class="btn" onclick="skipKey()">Bỏ qua</button>
+                    <button type="button" class="btn btn-danger" style="flex:1" onclick="stopWizard()">Hủy</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: QUẢN LÝ THIẾT BỊ -->
+    <div class="modal-overlay" id="modal-manage" onclick="if(event.target === this) closeModal()">
+        <div class="modal-content">
+            <h2 id="manage-title" style="color:var(--text-primary); text-align:center">Quản lý thiết bị</h2>
+            <p id="manage-info" style="text-align:center; color:var(--text-secondary); font-size:14px; margin-bottom:20px"></p>
+            
+            <div class="list-group">
+                <div class="list-item" onclick="renameDevicePrompt()">
+                    <span>Đổi tên</span>
+                    <i data-lucide="edit-3" size="18"></i>
+                </div>
+                <div class="list-item" onclick="deleteDeviceConfirm()" style="color:var(--danger)">
+                    <span>Xóa thiết bị</span>
+                    <i data-lucide="trash-2" size="18"></i>
+                </div>
+            </div>
+            <button type="button" class="btn" style="margin-top:20px; width: 100%; border-radius: 15px;"
+                onclick="closeModal()">Đóng</button>
+        </div>
+    </div>
+
+</body>
+
+
+=======
     <title>NexusIR Workspace</title>
     <link rel="stylesheet" href="style.css">
     <!-- Inline minimal SVG icons would go here, or link to sprites -->
@@ -346,4 +672,5 @@
     <script src="app.js"></script>
 </body>
 
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 </html>

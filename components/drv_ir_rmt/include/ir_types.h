@@ -25,11 +25,7 @@ typedef enum {
 } ir_ac_fan_t;
 
 typedef enum {
-  AC_BRAND_DAIKIN = 0,
-  AC_BRAND_SAMSUNG,
-  AC_BRAND_MITSUBISHI,
-  AC_BRAND_PANASONIC,
-  AC_BRAND_LG,
+  AC_BRAND_CUSTOM = 0,
   AC_BRAND_MAX
 } ac_brand_t;
 
