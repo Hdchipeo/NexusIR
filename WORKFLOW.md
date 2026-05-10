@@ -80,6 +80,7 @@ This document explains the internal workflows and logic for the core components 
     *   **Fan v2**: For Fan control.
     *   **Lightbulbs (1-5)**: For each enabled LED Lamp.
     *   **Temperature Sensor**: For AHT20 sensor data.
+<<<<<<< HEAD
     *   **Dynamic IR Accessories**: Scans NVS during boot for learned Tivi and Custom IR keys. Each Tivi power button and Custom button is instantiated as a Bridged Accessory (Switch).
 4.  **State Restoration**: Reads the last known state from NVS and populates HomeKit characteristics *before* starting the HAP server.
 
@@ -89,6 +90,9 @@ To maintain stability and comply with HomeKit/RainMaker registration constraints
 2. **Persistence**: Command is saved to NVS with metadata (Brand, Name, Icon).
 3. **Trigger**: Web UI prompts the user to "Restart Hub".
 4. **Boot Sync**: Upon restart, the `int_homekit` and `int_rainmaker` modules fetch the updated list from NVS and register the new accessories before the cloud connection is established.
+=======
+4.  **State Restoration**: Reads the last known state from NVS and populates HomeKit characteristics *before* starting the HAP server.
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 ### Cloud to Device (Control)
 1.  **User**: Toggles "Power On" in Apple Home App.

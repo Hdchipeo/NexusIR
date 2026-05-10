@@ -5,7 +5,10 @@
 #include "nvs_flash.h"
 #include <string.h>
 #include <stdio.h>
+<<<<<<< HEAD
 #include <ctype.h>
+=======
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 #include "sdkconfig.h"
 
 static const char *TAG = "mgr_fan_logic";
@@ -81,6 +84,7 @@ void mgr_fan_init(void) {
     ESP_LOGI(TAG, "Initializing Fan Logic...");
     load_state_from_nvs();
 
+<<<<<<< HEAD
     // Default to custom brand "Fan" if no brand was saved
     if (!g_is_custom_brand || g_custom_brand_name[0] == '\0') {
         strncpy(g_custom_brand_name, "Fan", sizeof(g_custom_brand_name) - 1);
@@ -88,6 +92,15 @@ void mgr_fan_init(void) {
         g_is_custom_brand = true;
         save_state_to_nvs();
         ESP_LOGI(TAG, "No brand saved, defaulting to custom brand: 'Fan'");
+=======
+    // Default to custom brand "new" if no brand was saved
+    if (!g_is_custom_brand || g_custom_brand_name[0] == '\0') {
+        strncpy(g_custom_brand_name, "new", sizeof(g_custom_brand_name) - 1);
+        g_custom_brand_name[sizeof(g_custom_brand_name) - 1] = '\0';
+        g_is_custom_brand = true;
+        save_state_to_nvs();
+        ESP_LOGI(TAG, "No brand saved, defaulting to custom brand: 'new'");
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
     }
 
     ESP_LOGI(TAG, "Fan Logic Initialized: P=%d, S=%d, Brand=%d, Custom=%d (%s)", 
@@ -128,6 +141,7 @@ const char *mgr_fan_get_custom_brand(void) { return g_is_custom_brand ? g_custom
 bool mgr_fan_is_custom_brand(void) { return g_is_custom_brand; }
 void mgr_fan_set_bridge_cb(mgr_fan_bridge_cb_t cb) { s_bridge_cb = cb; }
 
+<<<<<<< HEAD
 static void send_custom_key(const char *brand, const char *suffix) {
     char short_brand[16] = {0};
     int idx = 0;
@@ -138,6 +152,16 @@ static void send_custom_key(const char *brand, const char *suffix) {
         }
     }
     char key[32];
+=======
+static void send_custom_key(const char *suffix) {
+    char short_brand[9] = {0};
+    int idx = 0;
+    for (int i = 0; g_custom_brand_name[i] && idx < 8; i++) {
+        char c = g_custom_brand_name[i];
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) short_brand[idx++] = c;
+    }
+    char key[16];
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
     snprintf(key, sizeof(key), "F_%s_%s", short_brand, suffix);
     if (mgr_ir_send_key(key) != ESP_OK) {
         ESP_LOGW(TAG, "Fan key not found: %s", key);
@@ -154,8 +178,12 @@ esp_err_t mgr_fan_send(void) {
     ESP_LOGI(TAG, "mgr_fan_send: Power=%d, Speed=%d, Brand=%d, Custom=%d (%s)", 
              g_fan_state.power, g_fan_state.speed, (int)g_fan_brand, g_is_custom_brand, g_custom_brand_name);
 
+<<<<<<< HEAD
     if (g_is_custom_brand || g_fan_brand == FAN_BRAND_GENERIC) {
         const char *brand = g_is_custom_brand ? g_custom_brand_name : "Fan";
+=======
+    if (g_is_custom_brand) {
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
         bool power_changed = (g_fan_state.power != g_last_sent_state.power);
         bool speed_changed = (g_fan_state.speed != g_last_sent_state.speed);
         bool swing_changed = (g_fan_state.swing != g_last_sent_state.swing);
@@ -166,6 +194,7 @@ esp_err_t mgr_fan_send(void) {
         if (power_changed) {
             if (g_fan_state.power) {
                 // Turning ON
+<<<<<<< HEAD
                 if (mgr_ir_send_key_exists("F_", brand, "ON")) {
                     send_custom_key(brand, "ON");
                 } else if (mgr_ir_send_key_exists("F_", brand, "BAT")) {
@@ -185,6 +214,19 @@ esp_err_t mgr_fan_send(void) {
                     send_custom_key(brand, "NGUON");
                 } else {
                     send_custom_key(brand, "PWR");
+=======
+                if (mgr_ir_send_key_exists("F_", g_custom_brand_name, "ON")) {
+                    send_custom_key("ON");
+                } else {
+                    send_custom_key("PWR");
+                }
+            } else {
+                // Turning OFF
+                if (mgr_ir_send_key_exists("F_", g_custom_brand_name, "OFF")) {
+                    send_custom_key("OFF");
+                } else {
+                    send_custom_key("PWR");
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
                 }
             }
         }
@@ -193,15 +235,26 @@ esp_err_t mgr_fan_send(void) {
         if (g_fan_state.power && speed_changed) {
             char spd_suffix[8];
             snprintf(spd_suffix, sizeof(spd_suffix), "S%d", g_fan_state.speed);
+<<<<<<< HEAD
             if (mgr_ir_send_key_exists("F_", brand, spd_suffix)) {
                 send_custom_key(brand, spd_suffix);
             } else {
                 send_custom_key(brand, "SUP");
+=======
+            if (mgr_ir_send_key_exists("F_", g_custom_brand_name, spd_suffix)) {
+                send_custom_key(spd_suffix);
+            } else {
+                send_custom_key("SUP");
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
             }
         }
 
         if (g_fan_state.power && swing_changed) {
+<<<<<<< HEAD
             send_custom_key(brand, "SWG");
+=======
+            send_custom_key("SWG");
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
         }
 
         memcpy(&g_last_sent_state, &g_fan_state, sizeof(ir_fan_state_t));

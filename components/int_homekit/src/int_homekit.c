@@ -16,8 +16,11 @@
 #include "mgr_ac_logic.h"
 #include "mgr_fan_logic.h"
 #include "svc_web_server.h"
+<<<<<<< HEAD
 #include "mgr_ir_protocols.h"
 #include <ctype.h>
+=======
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 // Optional Sensor Support
 #if CONFIG_LAMP_SENSOR_AHT20
@@ -26,8 +29,11 @@
 
 #include "drv_led.h"
 #include "mgr_relay.h"
+<<<<<<< HEAD
 #include "svc_nvs.h"
 #include "cJSON.h"
+=======
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 static const char *TAG = "int_homekit";
 
@@ -61,7 +67,11 @@ static hap_char_t *s_led_sat_char[MAX_LEDS] = {NULL};
 static hap_serv_t *s_fan_service = NULL;
 static hap_char_t *s_fan_on_char = NULL;
 static hap_char_t *s_fan_speed_char = NULL;
+<<<<<<< HEAD
 // static hap_char_t *s_fan_direction_char = NULL; // Unused
+=======
+static hap_char_t *s_fan_direction_char = NULL;
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 // Relay Services
 static hap_serv_t *s_relay_service[2] = {NULL};
@@ -358,6 +368,7 @@ static int webui_write(hap_write_data_t write_data[], int count,
   return HAP_SUCCESS;
 }
 
+<<<<<<< HEAD
 static void auto_turn_off_task(void *pv) {
   hap_char_t *hc = (hap_char_t *)pv;
   vTaskDelay(pdMS_TO_TICKS(500)); // wait 500ms
@@ -406,6 +417,8 @@ static int tv_switch_write(hap_write_data_t write_data[], int count,
   return HAP_SUCCESS;
 }
 
+=======
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 /* Update HomeKit state from device state (Poll/Push) */
 void int_homekit_update_state(const ir_ac_state_t *state) {
   if (!s_thermostat_service)
@@ -848,6 +861,7 @@ esp_err_t int_homekit_init(void) {
   }
 #endif
 
+<<<<<<< HEAD
   // -------------------------------------------------------------------------
   // 7. Dynamically Create TV and Custom Accessories
   // -------------------------------------------------------------------------
@@ -959,6 +973,8 @@ esp_err_t int_homekit_init(void) {
       cJSON_Delete(brands);
   }
 
+=======
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
   hap_set_setup_code("111-22-333");
   hap_set_setup_id("LP4C");
 
@@ -1033,6 +1049,7 @@ esp_err_t int_homekit_init(void) {
 
 #else
 
+<<<<<<< HEAD
 esp_err_t int_homekit_init(void) { return ESP_OK; }
 bool int_homekit_is_paired(void) { return false; }
 void int_homekit_update_state(const ir_ac_state_t *state) {}
@@ -1040,5 +1057,10 @@ void int_homekit_update_led(uint8_t lamp_id, uint8_t power, uint8_t effect, uint
 void int_homekit_update_fan_state(const ir_fan_state_t *state) {}
 void int_homekit_update_temp(float temperature, float humidity) {}
 void int_homekit_update_relay(uint8_t relay_idx, bool state) {}
+=======
+esp_err_t int_homekit_init(void) {
+  return ESP_OK; // Dummy
+}
+>>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 #endif
