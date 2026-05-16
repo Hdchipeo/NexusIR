@@ -86,50 +86,19 @@ def get_db():
 # --- Device APIs (Protocols for ESP32) ---
 
 @app.get("/version.txt", response_class=PlainTextResponse)
-<<<<<<< HEAD
-def get_version_txt(device_id: str = "Unknown", db: Session = Depends(get_db)):
-    # Check for device-specific version
-    device = db.query(Device).filter(Device.id == device_id).first()
-    if device and device.target_version_id:
-        target_v = db.query(Version).filter(Version.id == device.target_version_id).first()
-        if target_v:
-            return target_v.version_string
-
-    # Fallback to global active version
-=======
 def get_version_txt(db: Session = Depends(get_db)):
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
     active_version = db.query(Version).filter(Version.is_active == True).order_by(Version.created_at.desc()).first()
     if active_version:
         return active_version.version_string
     return "0.0.0"
 
 @app.get("/nexus-ir.bin")
-<<<<<<< HEAD
-def download_firmware(device_id: str = "Unknown", db: Session = Depends(get_db)):
-    target_v = None
-    # Check for device-specific version
-    device = db.query(Device).filter(Device.id == device_id).first()
-    if device and device.target_version_id:
-        target_v = db.query(Version).filter(Version.id == device.target_version_id).first()
-    
-    # Fallback to global active version
-    if not target_v:
-        target_v = db.query(Version).filter(Version.is_active == True).order_by(Version.created_at.desc()).first()
-
-    if target_v:
-        file_path = os.path.join(UPLOAD_DIR, target_v.filename)
-        if os.path.exists(file_path):
-            return FileResponse(file_path, media_type="application/octet-stream", filename="nexus-ir.bin")
-    
-=======
 def download_firmware(db: Session = Depends(get_db)):
     active_version = db.query(Version).filter(Version.is_active == True).order_by(Version.created_at.desc()).first()
     if active_version:
         file_path = os.path.join(UPLOAD_DIR, active_version.filename)
         if os.path.exists(file_path):
             return FileResponse(file_path, media_type="application/octet-stream", filename="nexus-ir.bin")
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
     raise HTTPException(status_code=404, detail="Firmware not found")
 
 # --- Dashboard APIs ---
@@ -158,38 +127,11 @@ def list_devices(db: Session = Depends(get_db)):
             "name": d.device_name,
             "ip": d.last_ip,
             "version": d.current_version,
-<<<<<<< HEAD
-            "target_version_id": d.target_version_id,
-            "target_version_name": d.target_version.version_string if d.target_version else "Global",
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
             "last_seen": d.last_seen.isoformat(),
             "status": d.status
         } for d in devices
     ]
 
-<<<<<<< HEAD
-@app.post("/api/devices/{device_id}/config")
-def config_device(device_id: str, name: str = Form(None), target_version_id: int = Form(None), db: Session = Depends(get_db)):
-    device = db.query(Device).filter(Device.id == device_id).first()
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-    
-    if name is not None:
-        device.device_name = name
-    
-    # target_version_id = 0 or -1 could mean "Back to Global"
-    if target_version_id is not None:
-        if target_version_id <= 0:
-            device.target_version_id = None
-        else:
-            device.target_version_id = target_version_id
-            
-    db.commit()
-    return {"status": "success", "device_id": device_id}
-
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 @app.get("/api/versions", response_model=List[dict])
 def list_versions(db: Session = Depends(get_db)):
     versions = db.query(Version).order_by(Version.created_at.desc()).all()

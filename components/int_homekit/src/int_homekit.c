@@ -16,11 +16,6 @@
 #include "mgr_ac_logic.h"
 #include "mgr_fan_logic.h"
 #include "svc_web_server.h"
-<<<<<<< HEAD
-#include "mgr_ir_protocols.h"
-#include <ctype.h>
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 // Optional Sensor Support
 #if CONFIG_LAMP_SENSOR_AHT20
@@ -29,11 +24,6 @@
 
 #include "drv_led.h"
 #include "mgr_relay.h"
-<<<<<<< HEAD
-#include "svc_nvs.h"
-#include "cJSON.h"
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 static const char *TAG = "int_homekit";
 
@@ -67,11 +57,7 @@ static hap_char_t *s_led_sat_char[MAX_LEDS] = {NULL};
 static hap_serv_t *s_fan_service = NULL;
 static hap_char_t *s_fan_on_char = NULL;
 static hap_char_t *s_fan_speed_char = NULL;
-<<<<<<< HEAD
-// static hap_char_t *s_fan_direction_char = NULL; // Unused
-=======
 static hap_char_t *s_fan_direction_char = NULL;
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 // Relay Services
 static hap_serv_t *s_relay_service[2] = {NULL};
@@ -368,57 +354,6 @@ static int webui_write(hap_write_data_t write_data[], int count,
   return HAP_SUCCESS;
 }
 
-<<<<<<< HEAD
-static void auto_turn_off_task(void *pv) {
-  hap_char_t *hc = (hap_char_t *)pv;
-  vTaskDelay(pdMS_TO_TICKS(500)); // wait 500ms
-  hap_val_t val = {.b = false};
-  hap_char_update_val(hc, &val);
-  vTaskDelete(NULL);
-}
-
-static int custom_btn_write(hap_write_data_t write_data[], int count,
-                            void *serv_priv, void *write_priv) {
-  const char *key_str = (const char *)serv_priv;
-  for (int i = 0; i < count; i++) {
-    hap_write_data_t *data = &write_data[i];
-    if (strcmp(hap_char_get_type_uuid(data->hc), HAP_CHAR_UUID_ON) == 0) {
-      bool on = data->val.b;
-      if (on && key_str) {
-        ESP_LOGI(TAG, "HomeKit Custom Button Triggered: %s", key_str);
-        mgr_ir_send_key(key_str);
-        // Automatically turn off the switch in UI
-        xTaskCreate(auto_turn_off_task, "auto_off", 2048, data->hc, 5, NULL);
-      }
-      hap_char_update_val(data->hc, &(data->val));
-      *(data->status) = HAP_STATUS_SUCCESS;
-    }
-  }
-  return HAP_SUCCESS;
-}
-
-static int tv_switch_write(hap_write_data_t write_data[], int count,
-                           void *serv_priv, void *write_priv) {
-  const char *short_brand = (const char *)serv_priv;
-  for (int i = 0; i < count; i++) {
-    hap_write_data_t *data = &write_data[i];
-    if (strcmp(hap_char_get_type_uuid(data->hc), HAP_CHAR_UUID_ON) == 0) {
-      bool on = data->val.b;
-      if (short_brand) {
-        char key_str[32];
-        snprintf(key_str, sizeof(key_str), "T_%s_PWR", short_brand);
-        ESP_LOGI(TAG, "HomeKit TV Triggered: %s (State: %d)", key_str, on);
-        mgr_ir_send_key(key_str);
-      }
-      hap_char_update_val(data->hc, &(data->val));
-      *(data->status) = HAP_STATUS_SUCCESS;
-    }
-  }
-  return HAP_SUCCESS;
-}
-
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 /* Update HomeKit state from device state (Poll/Push) */
 void int_homekit_update_state(const ir_ac_state_t *state) {
   if (!s_thermostat_service)
@@ -861,120 +796,6 @@ esp_err_t int_homekit_init(void) {
   }
 #endif
 
-<<<<<<< HEAD
-  // -------------------------------------------------------------------------
-  // 7. Dynamically Create TV and Custom Accessories
-  // -------------------------------------------------------------------------
-  cJSON *brands = NULL;
-  svc_nvs_load_custom_brands(&brands);
-
-  if (brands && cJSON_IsArray(brands)) {
-      cJSON *ir_keys = svc_nvs_get_ir_keys();
-
-      cJSON *item = NULL;
-      cJSON_ArrayForEach(item, brands) {
-          cJSON *name_item = cJSON_GetObjectItem(item, "name");
-          cJSON *type_item = cJSON_GetObjectItem(item, "type");
-          if (!cJSON_IsString(name_item) || !cJSON_IsString(type_item)) continue;
-          
-          const char *name = name_item->valuestring;
-          const char *type = type_item->valuestring;
-
-          // Convert name to safe brand string for key matching
-          char short_brand[16] = {0};
-          int b_idx = 0;
-          for (int i = 0; name[i] && b_idx < 15; i++) {
-              char c = name[i];
-              if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
-                  short_brand[b_idx++] = toupper((unsigned char)c);
-              }
-          }
-
-          if (strcmp(type, "TV") == 0) {
-              // TV: Create a single switch for Power
-              char *acc_name = strdup(name); 
-              char *tv_serial = malloc(32);
-              snprintf(tv_serial, 32, "TV-%s", short_brand);
-              
-              hap_acc_cfg_t tv_cfg = {
-                  .name = acc_name,
-                  .manufacturer = "NexusIR Inc",
-                  .model = "LP-TV-01",
-                  .serial_num = tv_serial,
-                  .fw_rev = "1.0.0",
-                  .hw_rev = "1.0",
-                  .pv = "1.1.0",
-                  .identify_routine = hap_identify,
-                  .cid = HAP_CID_SWITCH, // Default to switch for TV power
-              };
-              hap_acc_t *tv_acc = hap_acc_create(&tv_cfg);
-              if (tv_acc) {
-                  hap_acc_add_product_data(tv_acc, product_data, sizeof(product_data));
-                  hap_serv_t *tv_serv = hap_serv_switch_create(false);
-                  
-                  hap_serv_set_priv(tv_serv, strdup(short_brand));
-                  hap_serv_set_write_cb(tv_serv, tv_switch_write);
-                  
-                  hap_acc_add_serv(tv_acc, tv_serv);
-                  hap_add_bridged_accessory(tv_acc, hap_get_unique_aid(acc_name));
-                  ESP_LOGI(TAG, "Added Bridged TV Accessory: %s", acc_name);
-              }
-          } else if (strcmp(type, "CUSTOM") == 0) {
-              // Custom: Create a switch for EACH IR key
-              char prefix[32];
-              snprintf(prefix, sizeof(prefix), "C_%s_", short_brand);
-              int p_len = strlen(prefix);
-
-              if (ir_keys && cJSON_IsArray(ir_keys)) {
-                  cJSON *k_item = NULL;
-                  cJSON_ArrayForEach(k_item, ir_keys) {
-                      if (cJSON_IsString(k_item)) {
-                          const char *key_str = k_item->valuestring;
-                          if (strncmp(key_str, prefix, p_len) == 0) {
-                              const char *suffix = key_str + p_len;
-                              
-                              char acc_name[64];
-                              snprintf(acc_name, sizeof(acc_name), "%s %s", name, suffix);
-                              char *p_name = strdup(acc_name);
-                              
-                              char *btn_serial = malloc(32);
-                              snprintf(btn_serial, 32, "BTN-%s", suffix);
-
-                              hap_acc_cfg_t btn_cfg = {
-                                  .name = p_name,
-                                  .manufacturer = "NexusIR Inc",
-                                  .model = "LP-BTN-01",
-                                  .serial_num = btn_serial,
-                                  .fw_rev = "1.0.0",
-                                  .hw_rev = "1.0",
-                                  .pv = "1.1.0",
-                                  .identify_routine = hap_identify,
-                                  .cid = HAP_CID_SWITCH,
-                              };
-                              hap_acc_t *btn_acc = hap_acc_create(&btn_cfg);
-                              if (btn_acc) {
-                                  hap_acc_add_product_data(btn_acc, product_data, sizeof(product_data));
-                                  hap_serv_t *btn_serv = hap_serv_switch_create(false);
-                                  
-                                  hap_serv_set_priv(btn_serv, strdup(key_str));
-                                  hap_serv_set_write_cb(btn_serv, custom_btn_write);
-                                  
-                                  hap_acc_add_serv(btn_acc, btn_serv);
-                                  hap_add_bridged_accessory(btn_acc, hap_get_unique_aid(p_name));
-                                  ESP_LOGI(TAG, "Added Bridged Custom Accessory: %s", p_name);
-                              }
-                          }
-                      }
-                  }
-              }
-          }
-      }
-      if (ir_keys) cJSON_Delete(ir_keys);
-      cJSON_Delete(brands);
-  }
-
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
   hap_set_setup_code("111-22-333");
   hap_set_setup_id("LP4C");
 
@@ -1049,18 +870,8 @@ esp_err_t int_homekit_init(void) {
 
 #else
 
-<<<<<<< HEAD
-esp_err_t int_homekit_init(void) { return ESP_OK; }
-bool int_homekit_is_paired(void) { return false; }
-void int_homekit_update_state(const ir_ac_state_t *state) {}
-void int_homekit_update_led(uint8_t lamp_id, uint8_t power, uint8_t effect, uint8_t brightness, uint8_t r, uint8_t g, uint8_t b, uint8_t speed) {}
-void int_homekit_update_fan_state(const ir_fan_state_t *state) {}
-void int_homekit_update_temp(float temperature, float humidity) {}
-void int_homekit_update_relay(uint8_t relay_idx, bool state) {}
-=======
 esp_err_t int_homekit_init(void) {
   return ESP_OK; // Dummy
 }
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 #endif

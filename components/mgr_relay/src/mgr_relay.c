@@ -69,11 +69,7 @@ esp_err_t mgr_relay_init(void)
 
     for (int i = 0; i < 2; i++) {
         s_relays[i].relay_gpio = relay_gpios[i];
-<<<<<<< HEAD
-        s_relays[i].touch_gpio = (i == 0) ? -1 : touch_gpios[i];
-=======
         s_relays[i].touch_gpio = touch_gpios[i];
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
         
         // Restore state from NVS
         uint8_t saved_state = 0;
@@ -102,17 +98,6 @@ esp_err_t mgr_relay_init(void)
             .long_press_time = 1000,
             .short_press_time = 50,
         };
-<<<<<<< HEAD
-        if (s_relays[i].touch_gpio >= 0) {
-            button_gpio_config_t gpio_cfg = {
-                .gpio_num = s_relays[i].touch_gpio,
-                .active_level = 0,
-            };
-            iot_button_new_gpio_device(&btn_cfg, &gpio_cfg, &s_relays[i].btn_handle);
-            if (s_relays[i].btn_handle) {
-                iot_button_register_cb(s_relays[i].btn_handle, BUTTON_SINGLE_CLICK, NULL, relay_toggle_cb, (void*)(uint32_t)i);
-            }
-=======
         button_gpio_config_t gpio_cfg = {
             .gpio_num = s_relays[i].touch_gpio,
             .active_level = 0,
@@ -120,7 +105,6 @@ esp_err_t mgr_relay_init(void)
         iot_button_new_gpio_device(&btn_cfg, &gpio_cfg, &s_relays[i].btn_handle);
         if (s_relays[i].btn_handle) {
             iot_button_register_cb(s_relays[i].btn_handle, BUTTON_SINGLE_CLICK, NULL, relay_toggle_cb, (void*)(uint32_t)i);
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
         }
     }
 #endif

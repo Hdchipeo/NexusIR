@@ -13,17 +13,8 @@ To develop a robust, ESP32-based IoT device capable of controlling Infrared (IR)
   - Single ESP32 acts as a Bridge for AC, Fan, Temp Sensor, and up to 5 LED Lamps.
   - Dynamically hides or shows devices based on `menuconfig` selection.
 - **Universal IR Control**:
-<<<<<<< HEAD
-  - Receiver for learning commands (Custom Brands for Fan, AC, Tivi).
-  - Matrix Learning system for rapid command indexing and storage.
-  - Transmitter for controlling ACs (Samsung, Daikin, etc.), Fans, and Tivis.
-- **Dynamic Device Synchronization**:
-  - Automatically bridges learned IR Tivi and Custom buttons into HomeKit/RainMaker.
-  - Reboot-to-Sync architecture ensures high stability for bridged accessories.
-=======
   - Receiver for learning commands (Custom Brands for Fan and AC).
   - Transmitter for controlling ACs (Samsung, Daikin, etc.) and Fans.
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 - **Smart LED Control**:
   - Control up to 5 independent WS2812B RGB or PWM LED strips.
   - Adjustable usage (brightness, color, effects) per lamp.
@@ -104,13 +95,8 @@ The system utilizes the ESP32 as a Master controller/Bridge or a hardware Slave 
 - `components/`: Modularized logic.
   - `drv_*`: Hardware Drivers (AHT20, Button, IR, LED).
   - `svc_*`: System Services (WiFi, Web, OTA, Storage, Logging, ESP-NOW).
-<<<<<<< HEAD
-  - `mgr_*`: Business Logic (AC/Fan Protocols, IR Managers, Matrix Engine).
-  - `int_*`: Integrations (HomeKit, RainMaker).
-=======
   - `mgr_*`: Business Logic (AC/Fan Protocols, IR Managers).
   - `int_*`: Integrations (HomeKit).
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 ### Main Components
 - **ESP-NOW Manager** (`svc_espnow`): Routes P2P commands between Master and Slave MAC addresses.
@@ -214,11 +200,6 @@ The system utilizes the ESP32 as a Master controller/Bridge or a hardware Slave 
   - Fan v2 (Fan).
   - Lightbulb (LED Lamps 1-5).
   - Humidity/Temp Sensor (AHT20).
-<<<<<<< HEAD
-  - **Tivi Power Switches**: Dynamically created for each learned Tivi.
-  - **Custom Buttons**: Dynamically created for each learned custom IR key.
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 ### Pairing
 - Setup Code: `111-22-333`.

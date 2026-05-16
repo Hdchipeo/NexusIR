@@ -41,15 +41,9 @@ static esp_timer_handle_t s_restart_timer = NULL;
 // Data storage
 #define MAX_IR_SYMBOLS 600 // Safe size for DMA (Max < 4095 bytes)
 
-<<<<<<< HEAD
-// Dynamic buffer for learning (Made non-static for Matrix access)
-rmt_symbol_word_t *s_learning_symbols = NULL;
-uint32_t s_learning_num_symbols = 0;
-=======
 // Dynamic buffer for learning
 static rmt_symbol_word_t *s_learning_symbols = NULL;
 static uint32_t s_learning_num_symbols = 0;
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 static bool s_is_learning = false;
 static bool s_is_slave_mode = false;
 static mgr_ir_rx_cb_t s_rx_callback = NULL;
@@ -100,11 +94,7 @@ static int app_ir_get_palette_idx(uint16_t duration, ir_palette_item_t *palette,
  * @brief Encode IR symbols using Palette-based compression (4-bit nibbles)
  * Format: [Magic:1][Count:4][PalSize:1][Palette:P*2][Data: ceil(N/2)]
  */
-<<<<<<< HEAD
-static __attribute__((unused)) size_t app_ir_encode(const rmt_symbol_word_t *src, uint32_t count,
-=======
 static size_t app_ir_encode(const rmt_symbol_word_t *src, uint32_t count,
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
                             uint8_t *dst, size_t max_len) {
   if (count == 0)
     return 0;
@@ -682,15 +672,9 @@ esp_err_t mgr_ir_send_cmd(mgr_ir_cmd_t cmd) {
 
 bool mgr_ir_send_key_exists(const char *prefix, const char *brand,
                             const char *suffix) {
-<<<<<<< HEAD
-  char short_brand[16] = {0};
-  int idx = 0;
-  for (int i = 0; brand[i] && idx < 15; i++) {
-=======
   char short_brand[9] = {0};
   int idx = 0;
   for (int i = 0; brand[i] && idx < 8; i++) {
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
     char c = brand[i];
     if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
         (c >= '0' && c <= '9')) {
@@ -698,20 +682,12 @@ bool mgr_ir_send_key_exists(const char *prefix, const char *brand,
     }
   }
 
-<<<<<<< HEAD
-  char key[32];
-=======
   char key[16];
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
   snprintf(key, sizeof(key), "%s%s_%s", prefix, short_brand, suffix);
 
   // Normalize to uppercase — save path uses normalize_key (uppercase),
   // so lookup must match.
-<<<<<<< HEAD
-  char upper_key[32] = {0};
-=======
   char upper_key[16] = {0};
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
   normalize_key(upper_key, key, sizeof(upper_key));
 
   size_t loaded_size = 0;

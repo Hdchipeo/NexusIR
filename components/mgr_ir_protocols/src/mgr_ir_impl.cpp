@@ -1,21 +1,13 @@
 #include "drv_ir_rmt.h"
 #include "esp_log.h"
-<<<<<<< HEAD
-#include "ir_engine.h"
-=======
 #include "ir_ac_registry.hpp"
 #include "ir_engine.h"
 #include "ir_protocol_nec.hpp"
 #include "ir_universal.hpp"
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 static const char *TAG = "mgr_ir_impl";
 
 // Driver handles are managed by drv_ir_rmt, OR we pass data to it.
-<<<<<<< HEAD
-// Matrix and Raw sending are handled in mgr_ir_main.c and mgr_ir_matrix.c.
-
-=======
 // Here we implement the Logic -> Protocol -> RMT Item generation.
 // Then call ir_engine_send_raw from the Driver.
 
@@ -136,4 +128,3 @@ extern "C" esp_err_t mgr_ir_send_ac_state(int brand, const void *state_ptr) {
     return ESP_ERR_NOT_SUPPORTED;
   }
 }
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d

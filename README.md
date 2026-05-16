@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# NexusIR Device v1.6.0
-=======
 # NexusIR v1.5.0
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 **NexusIR** is an Advanced Agentic IoT controller powered by ESP32-C3/S3. It features a fully modular **ESP-NOW Master-Slave Architecture** and acts as an **Apple HomeKit Bridge**, unifying control of Air Conditioners, Fans, Temperature Sensors, and up to 5 independent LED Lamps.
 
@@ -18,11 +14,6 @@ For comprehensive technical documentation, including architecture, hardware desi
 *   **HomeKit Bridge**: Automatically instantiates Bridged Accessories for enabled devices, displaying custom names defined in `menuconfig`.
 *   **Dynamic Hardware Allocation**: Disabled devices bypass hardware initialization, saving RAM and GPIO pins.
 *   **Fan IR Protocol Support**: Added robust learning and transmission for custom Fan brands.
-<<<<<<< HEAD
-*   **Dynamic Device Sync**: Automatically bridge any learned IR Tivi or Custom buttons into HomeKit/RainMaker during boot.
-*   **Reboot-to-Sync Architecture**: A robust persistent model where new devices are registered upon hub restart to ensure stability.
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 ---
 
@@ -67,10 +58,6 @@ For comprehensive technical documentation, including architecture, hardware desi
 3.  Captive portal auto-opens for WiFi configuration.
 4.  After WiFi connection, add device in Apple Home app using the pairing code `111-22-333` (Setup ID: `LP4C`).
 5.  All enabled devices (AC, Fan, Temp, LEDs 1-5) will automatically appear as bridged accessories.
-<<<<<<< HEAD
-6.  **IR Sync**: Any Tivi or Custom IR buttons learned via the Web UI will appear as accessories after a **Hub Reboot**.
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 ---
 
