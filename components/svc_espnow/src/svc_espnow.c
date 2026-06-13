@@ -8,6 +8,8 @@
 #include "esp_mac.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include "svc_espnow.h"
 #include "drv_led.h"
