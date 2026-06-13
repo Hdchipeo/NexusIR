@@ -81,6 +81,33 @@ The following table reflects the default hardware mapping for **Standalone / Sla
 
 ---
 
+## 📐 3D Enclosure & Industrial Design
+
+The NexusIR device features a premium, sleek dome form factor. Its transparent upper shell allows infrared signals from the star-configured internal LEDs to propagate in a full 360-degree horizontal coverage matrix.
+
+### Product Render Gallery
+Here are the official 3D design renders of the NexusIR device:
+
+| Exploded Case Components | Internal PCB & IR LEDs |
+| :---: | :---: |
+| ![Exploded Enclosure](hardware/3d_print/Case.png) | ![PCB & Angled LEDs](hardware/3d_print/sanpham2.png) |
+
+| Fully Assembled Device | High-Quality Desk Setup Render |
+| :---: | :---: |
+| ![Assembled Controller](hardware/3d_print/white.png) | ![Desk Setup Lifestyle](hardware/3d_print/Untitled.png) |
+
+### 3D Printing Files
+The CAD files are provided in the high-fidelity **3D Manufacturing Format (`.3mf`)**, containing all mesh data, orientation, and color information:
+
+*   [Body.3mf](file:///Users/dangminhtam/Project-storage/My-Project/NexusIR/hardware/3d_print/Body.3mf) — The main outer casing ring hosting the PCB, status LEDs, and connectors.
+*   [Top.3mf](file:///Users/dangminhtam/Project-storage/My-Project/NexusIR/hardware/3d_print/Top.3mf) — The upper transparent dome (best printed in transparent PETG or polycarbonate with aligned infill/100% infill for optical clarity).
+*   [Holder.3mf](file:///Users/dangminhtam/Project-storage/My-Project/NexusIR/hardware/3d_print/Holder.3mf) — Internal bracket to securely position and mount the ESP32 board and sensors.
+*   [Button.3mf](file:///Users/dangminhtam/Project-storage/My-Project/NexusIR/hardware/3d_print/Button.3mf) — The physical system button cap for IR learning and network reset.
+
+All assets are located in the [hardware/3d_print/](file:///Users/dangminhtam/Project-storage/My-Project/NexusIR/hardware/3d_print/) directory.
+
+---
+
 ## 📲 Provisioning & Setup Guide
 
 ### iOS Ecosystem (HomeKit native)
