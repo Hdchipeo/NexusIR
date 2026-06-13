@@ -117,21 +117,58 @@ You can print the enclosure body in various colors to match your styling:
 
 ## 📲 Provisioning & Setup Guide
 
-### iOS Ecosystem (HomeKit native)
-1.  **Boot**: Power on the Master node. The system status LED will enter a **Cyan breathing pattern**, indicating it is ready for Wi-Fi provisioning.
-2.  **SoftAP Connection**: Connect your iPhone to the Wi-Fi network `NexusIR-Setup-XXXX` (where `XXXX` represents the last 4 characters of the device's MAC address).
-3.  **Captive Portal**: A captive portal will automatically prompt you to scan for local networks. Select your home Wi-Fi SSID and enter the password.
-4.  **Pairing**: Once the device connects to your router (status LED turns **Green**), open the iOS **Home App**.
-5.  **Scan/Add**: Tap **Add Accessory** -> **More options...** and select **NexusIR Bridge**.
+### 🍎 iOS Platform (Apple HomeKit + Local Control)
+
+#### 1. Wi-Fi Provisioning (SoftAP Captive Portal)
+*   **Step 1**: Power on the NexusIR Master Node. The onboard status LED will breathe **Cyan**, showing the hotspot is open.
+*   **Step 2**: Open your iPhone's **Settings -> Wi-Fi** and connect to the network named `NexusIR-Setup-XXXX` (no password by default).
+*   **Step 3**: A captive portal configuration page will automatically open. If it doesn't, open Safari and navigate to `http://192.168.4.1`.
+*   **Step 4**: Click "Scan Networks", select your home 2.4GHz Wi-Fi network from the list, enter the password, and click **Connect**.
+*   **Step 5**: The device will save credentials, restart, and connect to your router. The status LED will turn **Solid Green** on successful connection.
+
+#### 2. Apple Home App Pairing
+*   **Step 1**: Ensure your iPhone is connected to the same home Wi-Fi network.
+*   **Step 2**: Open the native iOS **Home App** and tap the **"+"** icon -> **Add Accessory**.
+*   **Step 3**: Select **"More options..."** at the bottom (do not scan the camera box).
+*   **Step 4**: Under "Nearby Accessories", tap **NexusIR Bridge**.
+*   **Step 5**: Select **"Use Setup Code"** and enter:
     *   **HomeKit Setup Code**: `111-22-333`
     *   **Setup ID**: `LP4C`
-6.  **Bridge Sync**: All enabled sub-devices (AC, Fan, Temp/Humidity sensors, and Lights 1-5) will instantly populate in Apple Home as distinct accessories.
+*   **Step 6**: Assign locations (rooms) to the bridge and all enabled bridged accessories that appear.
 
-### Android Ecosystem (ESP RainMaker)
-If `LAMP_MOBILE_PLATFORM` is set to Android in `menuconfig`:
-1.  Launch the **ESP RainMaker** mobile app.
-2.  Scan the QR code printed in the terminal logs on boot.
-3.  Follow the app prompt to provision the Wi-Fi credentials over SoftAP or BLE.
+#### 3. How to Use Accessories in Apple Home
+*   **Thermostat (AC Control)**: Adjust temperature slider, toggle mode between Off, Cool, Heat, or Auto. Master forwards commands to your configured AC Slave via ESP-NOW.
+*   **Fan v2 (Fan Control)**: Toggle power and slide speed (0-100% maps automatically to Low, Medium, and High states on the physical fan).
+*   **Lightbulb (Lamps 1-5)**: Slide brightness or tap the color wheel to change addressable RGB WS2812B colors. Adjusting speed or special effects can be done via the Local Web Dashboard.
+*   **Temperature Sensor**: Displays live temperature and humidity metrics updated from AHT20 sensor logs.
+*   **Custom IR Switches (Tivi & Custom Keys)**: Any learned button will appear as a switch. Toggling the switch "On" broadcasts the IR code. The switch automatically bounces back to "Off" after 1 second (pulse action).
+
+#### 4. Siri Voice Commands
+*   *"Hey Siri, turn off the living room AC."*
+*   *"Hey Siri, set Lamp 1 to Blue."*
+*   *"Hey Siri, what is the kitchen temperature?"*
+
+---
+
+### 🤖 Android Platform (ESP RainMaker + Cloud Control)
+
+#### 1. Wi-Fi Provisioning (BLE or SoftAP)
+*   **Step 1**: Download and open the **ESP RainMaker** app from the Google Play Store. Create/login to your account.
+*   **Step 2**: Power on the Master node. Tap **Add Device** in the app.
+*   **Step 3**: Scan the QR code printed in your device's serial terminal log. If the QR code is not available, select **"I don't have a QR code"** and choose BLE or SoftAP transport method.
+*   **Step 4**: Connect to provisioning service `PROV_NEXUS_IR`. When prompted, enter the security passcode:
+    *   **Proof of Possession (PoP)**: `12345678`
+*   **Step 5**: Select your home Wi-Fi network, enter the password, and wait for the device to connect.
+
+#### 2. App Controls & Customization
+*   **Device Node Dashboard**: View and control all configured appliances (AC, Fan, LED Lamps, Relays) directly in the ESP RainMaker app.
+*   **Sensors Graphing**: RainMaker automatically logs temperature and humidity trends over time, letting you view historical graphs.
+*   **WebUI Config Mode**: To enable the local configuration dashboard, open the device settings inside the RainMaker app and toggle **"WebUI Config Mode"** to ON. Connect to `http://nexusir-xxxx.local` in your browser.
+
+#### 3. Cloud Integrations & Voice Assistants
+ESP RainMaker bridges the device to the Amazon Web Services (AWS) IoT cloud, allowing native linkage to third-party smart home ecosystems:
+*   **Amazon Alexa**: Enable the **ESP RainMaker Skill** in the Alexa app, log into your RainMaker account, and run a device discovery. Control appliances with: *"Alexa, set the AC to 26 degrees."*
+*   **Google Assistant**: Link the **ESP RainMaker Action** in the Google Home app, log in, and sync your devices. Control appliances with: *"Google, set Lamp 1 brightness to 80%."*
 
 ---
 
