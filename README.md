@@ -10,24 +10,24 @@ NexusIR splits hardware interfaces and protocol complexity via a robust Master-S
 
 ```mermaid
 graph TD
-    subgraph iOS Home App
+    subgraph iOS_Home_App ["iOS Home App"]
         H[Apple Home App]
     end
 
-    subgraph Master Node (ESP32-S3/C3)
+    subgraph Master_Node ["Master Node (ESP32-S3/C3)"]
         HK[HomeKit HAP Server]
         ME[Sync Engine]
         EN_M[ESP-NOW Master Driver]
         WEB[Local HTTP WebUI Server]
     end
 
-    subgraph Slave Node AC (ESP32-C3)
+    subgraph Slave_Node_AC ["Slave Node AC (ESP32-C3)"]
         EN_S1[ESP-NOW Slave]
         IR_AC[IR TX Driver]
         AC[Air Conditioner]
     end
 
-    subgraph Slave Node LEDs (ESP32-C3)
+    subgraph Slave_Node_LEDs ["Slave Node LEDs (ESP32-C3)"]
         EN_S2[ESP-NOW Slave]
         WS[WS2812B Driver]
         L1[Lamp 1]
