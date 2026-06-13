@@ -106,6 +106,13 @@ The CAD files are provided in the high-fidelity **3D Manufacturing Format (`.3mf
 
 All assets are located in the [hardware/3d_print/](file:///Users/dangminhtam/Project-storage/My-Project/NexusIR/hardware/3d_print/) directory.
 
+### Color Customization Options
+You can print the enclosure body in various colors to match your styling:
+
+| Cosmic Black | Classic White | Sunset Orange | Sakura Pink |
+| :---: | :---: | :---: | :---: |
+| ![Black Render](hardware/3d_print/Black.png) | ![White Render](hardware/3d_print/white.png) | ![Orange Render](hardware/3d_print/Orange.png) | ![Pink Render](hardware/3d_print/Pink.png) |
+
 ---
 
 ## 📲 Provisioning & Setup Guide
@@ -204,6 +211,46 @@ idf.py -p /dev/tty.usbserial-XXXX flash monitor
 ### Key Keyboard Shortcuts in Monitor:
 *   `Ctrl + ]` : Exit monitor.
 *   `Ctrl + T` then `Ctrl + R` : Reset MCU board.
+
+---
+
+## 💾 Pre-Compiled Sample Firmwares
+
+To make deployment as quick as possible, this repository includes pre-compiled production binaries for major targets. These can be flashed directly onto your devices without requiring a full ESP-IDF build environment.
+
+The pre-compiled packages are organized in the [firmware/](file:///Users/dangminhtam/Project-storage/My-Project/NexusIR/firmware/) directory:
+
+```
+firmware/
+├── esp32/
+│   ├── android/      # ESP RainMaker (Android) firmware
+│   └── ios/          # Apple HomeKit (iOS) firmware
+└── esp32c3/
+    ├── android/      # ESP RainMaker (Android) firmware
+    └── ios/          # Apple HomeKit (iOS) firmware
+```
+
+Each folder contains the complete binary set:
+*   `bootloader.bin` — The secondary bootloader.
+*   `partition-table.bin` — Cấu trúc phân vùng cho ứng dụng kép (OTA-ready) và SPIFFS.
+*   `ota_data_initial.bin` — Dữ liệu khởi tạo cho bộ nạp OTA.
+*   `nexus-ir.bin` — Ứng dụng chính.
+*   `storage.bin` — Ảnh phân vùng SPIFFS chứa các asset Web UI đã được nén tối ưu.
+
+### How to Flash Pre-Compiled Binaries
+You can flash these binaries using Esptool. Connect your device via USB and run the command matching your target chip:
+
+#### For ESP32-C3:
+```bash
+python -m esptool --chip esp32c3 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 4MB --flash_freq 80m 0x0 firmware/esp32c3/ios/bootloader.bin 0x8000 firmware/esp32c3/ios/partition-table.bin 0x15000 firmware/esp32c3/ios/ota_data_initial.bin 0x20000 firmware/esp32c3/ios/nexus-ir.bin 0x3e0000 firmware/esp32c3/ios/storage.bin
+```
+*(Replace `ios` with `android` depending on your mobile platform selection).*
+
+#### For ESP32:
+```bash
+python -m esptool --chip esp32 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 4MB --flash_freq 40m 0x1000 firmware/esp32/ios/bootloader.bin 0x8000 firmware/esp32/ios/partition-table.bin 0x15000 firmware/esp32/ios/ota_data_initial.bin 0x20000 firmware/esp32/ios/nexus-ir.bin 0x3e0000 firmware/esp32/ios/storage.bin
+```
+*(Replace `ios` with `android` depending on your mobile platform selection).*
 
 ---
 
