@@ -486,6 +486,17 @@ endmenu
 # =============================================================================
 menu "ESP-NOW Configuration"
 
+    config APP_DEVICE_NAME
+        string "Device Name"
+        default "NexusIR Node"
+        help
+            The name of this device, broadcasted over ESP-NOW for discovery.
+
+
+    config APP_LED_CONTROL
+        bool
+        default y if APP_LED1_CONTROL || APP_LED2_CONTROL || APP_LED3_CONTROL || APP_LED4_CONTROL || APP_LED5_CONTROL
+
     config APP_ESPNOW_BRIDGE_ENABLE
         bool
         default y if APP_ESPNOW_AC_MASTER || APP_ESPNOW_FAN_MASTER || APP_ESPNOW_TEMP_SLAVE || APP_ESPNOW_LED1_MASTER || APP_ESPNOW_LED2_MASTER || APP_ESPNOW_LED3_MASTER || APP_ESPNOW_LED4_MASTER || APP_ESPNOW_LED5_MASTER || APP_ESPNOW_RELAY_MASTER
@@ -638,5 +649,19 @@ menu "iOS WiFi Provisioning"
         default 4
         range 1 10
         depends on IOS_WIFI_PROV_AP_ENABLE
+
+endmenu
+
+# =============================================================================
+# Weather Configuration
+# =============================================================================
+menu "Weather Configuration"
+
+    config APP_WEATHER_ENABLE
+        bool "Enable Weather Service"
+        default y
+        help
+            Enable Open-Meteo weather service client to fetch current weather data
+            and update the display UI.
 
 endmenu

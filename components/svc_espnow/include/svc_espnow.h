@@ -6,7 +6,9 @@ typedef enum {
     ESPNOW_TYPE_LED = 1,
     ESPNOW_TYPE_FAN = 2,
     ESPNOW_TYPE_TEMP = 3,
-    ESPNOW_TYPE_RELAY = 4
+    ESPNOW_TYPE_RELAY = 4,
+    ESPNOW_TYPE_DISCOVERY_REQ = 0x10,
+    ESPNOW_TYPE_DISCOVERY_RESP = 0x11
 } espnow_msg_type_t;
 
 /**
@@ -51,3 +53,10 @@ esp_err_t svc_espnow_bridge_relay_send(uint8_t idx, bool state);
 esp_err_t svc_espnow_add_peer(const uint8_t *mac);
 esp_err_t svc_espnow_remove_peer(const uint8_t *mac);
 esp_err_t svc_espnow_get_peers(uint8_t *mac_list, int *count);
+
+typedef struct {
+    uint8_t mac[6];
+    char name[32];
+} espnow_discovered_device_t;
+
+int svc_espnow_scan_peers(espnow_discovered_device_t *devices, int max_devices);

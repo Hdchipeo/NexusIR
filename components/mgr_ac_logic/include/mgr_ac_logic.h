@@ -62,6 +62,13 @@ ac_brand_t mgr_ac_get_brand(void);
  */
 esp_err_t mgr_ac_send(void);
 
+/**
+ * @brief Check if AC is configured (IR matrix or power keys exist).
+ *
+ * @return bool True if configured
+ */
+bool mgr_ac_is_configured(void);
+
 #ifdef __cplusplus
 }
 #endif

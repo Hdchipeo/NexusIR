@@ -16,11 +16,8 @@
 #include "mgr_ac_logic.h"
 #include "mgr_fan_logic.h"
 #include "svc_web_server.h"
-<<<<<<< HEAD
 #include "mgr_ir_protocols.h"
 #include <ctype.h>
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 // Optional Sensor Support
 #if CONFIG_LAMP_SENSOR_AHT20
@@ -29,11 +26,8 @@
 
 #include "drv_led.h"
 #include "mgr_relay.h"
-<<<<<<< HEAD
 #include "svc_nvs.h"
 #include "cJSON.h"
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 static const char *TAG = "int_homekit";
 
@@ -67,11 +61,7 @@ static hap_char_t *s_led_sat_char[MAX_LEDS] = {NULL};
 static hap_serv_t *s_fan_service = NULL;
 static hap_char_t *s_fan_on_char = NULL;
 static hap_char_t *s_fan_speed_char = NULL;
-<<<<<<< HEAD
 // static hap_char_t *s_fan_direction_char = NULL; // Unused
-=======
-static hap_char_t *s_fan_direction_char = NULL;
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 // Relay Services
 static hap_serv_t *s_relay_service[2] = {NULL};
@@ -215,6 +205,7 @@ static int hap_identify(hap_acc_t *ha) {
 /*
  * Callback for HomeKit write operations
  */
+#ifndef CONFIG_APP_ESPNOW_AC_DISABLED
 static int thermostat_write(hap_write_data_t write_data[], int count,
                             void *serv_priv, void *write_priv) {
   ESP_LOGI(TAG, "HomeKit Write Request: %d items", count);
@@ -271,7 +262,9 @@ static int thermostat_write(hap_write_data_t write_data[], int count,
 
   return HAP_SUCCESS;
 }
+#endif
 
+#ifndef CONFIG_APP_ESPNOW_FAN_DISABLED
 static int fan_write(hap_write_data_t write_data[], int count,
                      void *serv_priv, void *write_priv) {
   ESP_LOGI(TAG, "HomeKit Fan Write Request: %d items", count);
@@ -332,6 +325,7 @@ static int fan_write(hap_write_data_t write_data[], int count,
 
   return HAP_SUCCESS;
 }
+#endif
 
 static int relay_write(hap_write_data_t write_data[], int count,
                        void *serv_priv, void *write_priv) {
@@ -368,7 +362,6 @@ static int webui_write(hap_write_data_t write_data[], int count,
   return HAP_SUCCESS;
 }
 
-<<<<<<< HEAD
 static void auto_turn_off_task(void *pv) {
   hap_char_t *hc = (hap_char_t *)pv;
   vTaskDelay(pdMS_TO_TICKS(500)); // wait 500ms
@@ -417,8 +410,6 @@ static int tv_switch_write(hap_write_data_t write_data[], int count,
   return HAP_SUCCESS;
 }
 
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 /* Update HomeKit state from device state (Poll/Push) */
 void int_homekit_update_state(const ir_ac_state_t *state) {
   if (!s_thermostat_service)
@@ -593,64 +584,66 @@ esp_err_t int_homekit_init(void) {
 
   // -------------------------------------------------------------------------
   // 3. Create AC Accessory (Bridged)
-#ifndef CONFIG_APP_ESPNOW_AC_DISABLED
-#endif
   // -------------------------------------------------------------------------
-  char ac_serial[20];
-  snprintf(ac_serial, sizeof(ac_serial), "%s-AC", serial);
-  hap_acc_cfg_t ac_cfg = {
-      .name = "NexusIR AC",
-      .manufacturer = "NexusIR Inc",
-      .model = "LP-IR-01",
-      .serial_num = ac_serial,
-      .fw_rev = "1.3.0",
-      .hw_rev = "1.0",
-      .pv = "1.1.0",
-      .identify_routine = hap_identify,
-      .cid = HAP_CID_THERMOSTAT,
-  };
-  hap_acc_t *ac_acc = hap_acc_create(&ac_cfg);
-  if (ac_acc) {
-    hap_acc_add_product_data(ac_acc, product_data, sizeof(product_data));
+#ifndef CONFIG_APP_ESPNOW_AC_DISABLED
+  if (mgr_ac_is_configured()) {
+    char ac_serial[20];
+    snprintf(ac_serial, sizeof(ac_serial), "%s-AC", serial);
+    hap_acc_cfg_t ac_cfg = {
+        .name = "NexusIR AC",
+        .manufacturer = "NexusIR Inc",
+        .model = "LP-IR-01",
+        .serial_num = ac_serial,
+        .fw_rev = "1.3.0",
+        .hw_rev = "1.0",
+        .pv = "1.1.0",
+        .identify_routine = hap_identify,
+        .cid = HAP_CID_THERMOSTAT,
+    };
+    hap_acc_t *ac_acc = hap_acc_create(&ac_cfg);
+    if (ac_acc) {
+      hap_acc_add_product_data(ac_acc, product_data, sizeof(product_data));
 
-    // Create Thermostat Service
-    s_thermostat_service = hap_serv_thermostat_create(0, 0, 24.0, 24.0, 0);
+      // Create Thermostat Service
+      s_thermostat_service = hap_serv_thermostat_create(0, 0, 24.0, 24.0, 0);
 
-    // Get handles
-    s_curr_temp_char = hap_serv_get_char_by_uuid(
-        s_thermostat_service, HAP_CHAR_UUID_CURRENT_TEMPERATURE);
-    s_target_temp_char = hap_serv_get_char_by_uuid(
-        s_thermostat_service, HAP_CHAR_UUID_TARGET_TEMPERATURE);
-    s_curr_state_char = hap_serv_get_char_by_uuid(
-        s_thermostat_service, HAP_CHAR_UUID_CURRENT_HEATING_COOLING_STATE);
-    s_target_state_char = hap_serv_get_char_by_uuid(
-        s_thermostat_service, HAP_CHAR_UUID_TARGET_HEATING_COOLING_STATE);
+      // Get handles
+      s_curr_temp_char = hap_serv_get_char_by_uuid(
+          s_thermostat_service, HAP_CHAR_UUID_CURRENT_TEMPERATURE);
+      s_target_temp_char = hap_serv_get_char_by_uuid(
+          s_thermostat_service, HAP_CHAR_UUID_TARGET_TEMPERATURE);
+      s_curr_state_char = hap_serv_get_char_by_uuid(
+          s_thermostat_service, HAP_CHAR_UUID_CURRENT_HEATING_COOLING_STATE);
+      s_target_state_char = hap_serv_get_char_by_uuid(
+          s_thermostat_service, HAP_CHAR_UUID_TARGET_HEATING_COOLING_STATE);
 
-    // Set Bounds & Callback
-    hap_char_float_set_constraints(s_target_temp_char, 16.0, 32.0, 1.0);
-    hap_serv_set_write_cb(s_thermostat_service, thermostat_write);
-    hap_acc_add_serv(ac_acc, s_thermostat_service);
+      // Set Bounds & Callback
+      hap_char_float_set_constraints(s_target_temp_char, 16.0, 32.0, 1.0);
+      hap_serv_set_write_cb(s_thermostat_service, thermostat_write);
+      hap_acc_add_serv(ac_acc, s_thermostat_service);
 
-// Optional Sensors
-#if CONFIG_LAMP_SENSOR_AHT20
-    s_temp_sensor_service = hap_serv_temperature_sensor_create(0.0f);
-    if (s_temp_sensor_service) {
-      s_sensor_curr_temp_char = hap_serv_get_char_by_uuid(
-          s_temp_sensor_service, HAP_CHAR_UUID_CURRENT_TEMPERATURE);
-      hap_acc_add_serv(ac_acc, s_temp_sensor_service);
+  // Optional Sensors
+  #if CONFIG_LAMP_SENSOR_AHT20
+      s_temp_sensor_service = hap_serv_temperature_sensor_create(0.0f);
+      if (s_temp_sensor_service) {
+        s_sensor_curr_temp_char = hap_serv_get_char_by_uuid(
+            s_temp_sensor_service, HAP_CHAR_UUID_CURRENT_TEMPERATURE);
+        hap_acc_add_serv(ac_acc, s_temp_sensor_service);
+      }
+      s_hum_sensor_service = hap_serv_humidity_sensor_create(0.0f);
+      if (s_hum_sensor_service) {
+        s_sensor_curr_hum_char = hap_serv_get_char_by_uuid(
+            s_hum_sensor_service, HAP_CHAR_UUID_CURRENT_RELATIVE_HUMIDITY);
+        hap_acc_add_serv(ac_acc, s_hum_sensor_service);
+      }
+  #endif
+
+      // Add AC as Bridged Accessory
+      hap_add_bridged_accessory(ac_acc, hap_get_unique_aid("NexusIR AC"));
+      ESP_LOGI(TAG, "Added Bridged AC Accessory");
     }
-    s_hum_sensor_service = hap_serv_humidity_sensor_create(0.0f);
-    if (s_hum_sensor_service) {
-      s_sensor_curr_hum_char = hap_serv_get_char_by_uuid(
-          s_hum_sensor_service, HAP_CHAR_UUID_CURRENT_RELATIVE_HUMIDITY);
-      hap_acc_add_serv(ac_acc, s_hum_sensor_service);
-    }
-#endif
-
-    // Add AC as Bridged Accessory
-    hap_add_bridged_accessory(ac_acc, hap_get_unique_aid("NexusIR AC"));
-    ESP_LOGI(TAG, "Added Bridged AC Accessory");
   }
+#endif
 
   // -------------------------------------------------------------------------
   // Create LED Lightbulb Accessories (Bridged)
@@ -792,40 +785,44 @@ esp_err_t int_homekit_init(void) {
   // -------------------------------------------------------------------------
   // Create Fan Accessory (Bridged)
   // -------------------------------------------------------------------------
-  hap_acc_cfg_t fan_cfg = {
-      .name = "NexusIR Fan",
-      .manufacturer = "NexusIR Inc",
-      .model = "LP-FAN-01",
-      .serial_num = "001122334466",
-      .fw_rev = "1.0.0",
-      .hw_rev = "1.0",
-      .pv = "1.1.0",
-      .identify_routine = hap_identify,
-      .cid = HAP_CID_FAN,
-  };
-  hap_acc_t *fan_acc = hap_acc_create(&fan_cfg);
-  if (fan_acc) {
-    hap_acc_add_product_data(fan_acc, product_data, sizeof(product_data));
+#ifndef CONFIG_APP_ESPNOW_FAN_DISABLED
+  if (mgr_fan_is_configured()) {
+    hap_acc_cfg_t fan_cfg = {
+        .name = "NexusIR Fan",
+        .manufacturer = "NexusIR Inc",
+        .model = "LP-FAN-01",
+        .serial_num = "001122334466",
+        .fw_rev = "1.0.0",
+        .hw_rev = "1.0",
+        .pv = "1.1.0",
+        .identify_routine = hap_identify,
+        .cid = HAP_CID_FAN,
+    };
+    hap_acc_t *fan_acc = hap_acc_create(&fan_cfg);
+    if (fan_acc) {
+      hap_acc_add_product_data(fan_acc, product_data, sizeof(product_data));
 
-    s_fan_service = hap_serv_fan_v2_create(false);
-    if (s_fan_service) {
-      s_fan_on_char = hap_serv_get_char_by_uuid(s_fan_service, HAP_CHAR_UUID_ON);
-      
-      // Add Rotation Speed
-      s_fan_speed_char = hap_char_rotation_speed_create(0);
-      hap_serv_add_char(s_fan_service, s_fan_speed_char);
+      s_fan_service = hap_serv_fan_v2_create(false);
+      if (s_fan_service) {
+        s_fan_on_char = hap_serv_get_char_by_uuid(s_fan_service, HAP_CHAR_UUID_ON);
+        
+        // Add Rotation Speed
+        s_fan_speed_char = hap_char_rotation_speed_create(0);
+        hap_serv_add_char(s_fan_service, s_fan_speed_char);
 
-      // Add Swing Mode
-      hap_char_t *swing_char = hap_char_swing_mode_create(0);
-      hap_serv_add_char(s_fan_service, swing_char);
+        // Add Swing Mode
+        hap_char_t *swing_char = hap_char_swing_mode_create(0);
+        hap_serv_add_char(s_fan_service, swing_char);
 
-      hap_serv_set_write_cb(s_fan_service, fan_write);
-      hap_acc_add_serv(fan_acc, s_fan_service);
+        hap_serv_set_write_cb(s_fan_service, fan_write);
+        hap_acc_add_serv(fan_acc, s_fan_service);
 
-      hap_add_bridged_accessory(fan_acc, hap_get_unique_aid("NexusIR Fan"));
-      ESP_LOGI(TAG, "Added Bridged Fan Accessory");
+        hap_add_bridged_accessory(fan_acc, hap_get_unique_aid("NexusIR Fan"));
+        ESP_LOGI(TAG, "Added Bridged Fan Accessory");
+      }
     }
   }
+#endif
 
   // -------------------------------------------------------------------------
   // Create Relay Accessories (Bridged)
@@ -861,7 +858,6 @@ esp_err_t int_homekit_init(void) {
   }
 #endif
 
-<<<<<<< HEAD
   // -------------------------------------------------------------------------
   // 7. Dynamically Create TV and Custom Accessories
   // -------------------------------------------------------------------------
@@ -973,8 +969,6 @@ esp_err_t int_homekit_init(void) {
       cJSON_Delete(brands);
   }
 
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
   hap_set_setup_code("111-22-333");
   hap_set_setup_id("LP4C");
 
@@ -1049,7 +1043,6 @@ esp_err_t int_homekit_init(void) {
 
 #else
 
-<<<<<<< HEAD
 esp_err_t int_homekit_init(void) { return ESP_OK; }
 bool int_homekit_is_paired(void) { return false; }
 void int_homekit_update_state(const ir_ac_state_t *state) {}
@@ -1057,10 +1050,5 @@ void int_homekit_update_led(uint8_t lamp_id, uint8_t power, uint8_t effect, uint
 void int_homekit_update_fan_state(const ir_fan_state_t *state) {}
 void int_homekit_update_temp(float temperature, float humidity) {}
 void int_homekit_update_relay(uint8_t relay_idx, bool state) {}
-=======
-esp_err_t int_homekit_init(void) {
-  return ESP_OK; // Dummy
-}
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 #endif

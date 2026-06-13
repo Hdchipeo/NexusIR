@@ -94,9 +94,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base,
   }
 }
 
-#if CONFIG_APP_ESPNOW_BRIDGE_ENABLE || CONFIG_APP_ESPNOW_SLAVE_ENABLE
 static bool s_espnow_rx_in_progress = false;
-#endif
 
 // --- Master (Bridge) Adaptors ---
 static void ac_bridge_send_adaptor(const ir_ac_state_t *state, ac_brand_t brand,
@@ -154,10 +152,7 @@ static void ac_espnow_handler_adaptor(const ir_ac_state_t *state,
   mgr_ac_set_state(state);
   mgr_ac_send();
   int_homekit_update_state(state);
-<<<<<<< HEAD
   app_rainmaker_update_ac(state);
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 #if CONFIG_APP_LCD_ENABLE
   char buf[32];
   snprintf(buf, sizeof(buf), "%s %d°C", state->power ? "ON" : "OFF", state->temp);
@@ -178,10 +173,7 @@ static void led_espnow_handler_adaptor(uint8_t lamp_id, uint8_t power, uint8_t e
   if (power)
     drv_led_set_effect(lamp_id, (drv_led_effect_t)effect);
   int_homekit_update_led(lamp_id, power, effect, brightness, r, g, b, speed);
-<<<<<<< HEAD
   app_rainmaker_update_led(lamp_id, power, brightness, r, g, b);
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 #if CONFIG_APP_LCD_ENABLE
   char title[32];
   snprintf(title, sizeof(title), "Lamp %d", lamp_id);
@@ -198,10 +190,7 @@ static void fan_espnow_handler_adaptor(const ir_fan_state_t *state,
   mgr_fan_set_state(state);
   mgr_fan_send();
   int_homekit_update_fan_state(state);
-<<<<<<< HEAD
   app_rainmaker_update_fan(state);
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 #if CONFIG_APP_LCD_ENABLE
   mgr_display_show_ui_notification_safe("Fan", state->power ? "ON" : "OFF");
 #endif
@@ -212,11 +201,8 @@ static void relay_espnow_handler_adaptor(uint8_t idx, bool state) {
   ESP_LOGI(TAG, "UI Update: Received RELAY state via ESP-NOW for Relay %d", idx + 1);
   s_espnow_rx_in_progress = true;
   mgr_relay_set_state(idx, state, true);
-<<<<<<< HEAD
   app_rainmaker_update_relay(idx, state);
   int_homekit_update_relay(idx, state);
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 #if CONFIG_APP_LCD_ENABLE
   char title[32];
   snprintf(title, sizeof(title), "Relay %d", idx + 1);
@@ -241,32 +227,18 @@ static void temp_update_task(void *arg) {
       mgr_display_update_ui_sensor_safe(t, h);
 #endif
     }
-<<<<<<< HEAD
     // Dynamic throttling: 60s if dimmed, 5s if active
     uint32_t delay_ms = mgr_display_is_dimmed() ? 60000 : 5000;
     vTaskDelay(pdMS_TO_TICKS(delay_ms));
-=======
-    vTaskDelay(pdMS_TO_TICKS(10000)); // Update every 10 seconds
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
   }
 }
 #endif
 
-<<<<<<< HEAD
 #if CONFIG_APP_LCD_ENABLE
 static void temp_espnow_handler(float temp, float humidity) {
   ESP_LOGI(TAG, "LCD Update: Received Temp from Slave -> %.1f°C", temp);
   int_homekit_update_temp(temp, humidity);
   mgr_display_update_ui_sensor_safe(temp, humidity);
-=======
-#if CONFIG_APP_ESPNOW_TEMP_MASTER
-static void temp_espnow_handler(float temp, float humidity) {
-  ESP_LOGI(TAG, "LCD Update: Received Temp from Slave -> %.1f°C", temp);
-  int_homekit_update_temp(temp, humidity);
-#if CONFIG_APP_LCD_ENABLE
-  mgr_display_update_ui_sensor_safe(temp, humidity);
-#endif
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 }
 #endif
 
@@ -279,12 +251,13 @@ static void ui_time_update_task(void *arg) {
 }
 #endif
 
+#if CONFIG_APP_WEATHER_ENABLE
 #include "svc_weather.h"
+#endif
 
 void app_main(void) {
   svc_log_init();
   sys_mem_init();
-  ESP_LOGI(TAG, "Starting Lamp IR Device...");
   ESP_LOGI(TAG, "Project version: %s", PROJECT_VERSION);
 
   // 1. Initialize NVS (Non-Volatile Storage)
@@ -343,11 +316,7 @@ void app_main(void) {
   svc_espnow_register_fan_handler(fan_espnow_handler_adaptor);
   svc_espnow_register_relay_handler(relay_espnow_handler_adaptor);
 
-<<<<<<< HEAD
 #if CONFIG_APP_LCD_ENABLE
-=======
-#if CONFIG_APP_ESPNOW_TEMP_MASTER
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
   svc_espnow_register_temp_handler(temp_espnow_handler);
 #endif
 
@@ -364,13 +333,8 @@ void app_main(void) {
   // 8. Initialize Mobile Platform Logic
 #if CONFIG_LAMP_PLATFORM_ANDROID
   // [Android] Initialize RainMaker
-<<<<<<< HEAD
   app_rainmaker_register_webui_toggle(web_ui_toggle_cb);
   app_rainmaker_init();
-=======
-  int_rainmaker_register_webui_toggle(web_ui_toggle_cb);
-  int_rainmaker_init();
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 #elif defined(CONFIG_LAMP_PLATFORM_IOS)
   #if CONFIG_APP_HOMEKIT_ENABLE
   // [iOS] Register event handler to init HomeKit after WiFi connected
@@ -404,8 +368,10 @@ void app_main(void) {
   svc_ota_auto_init();
 #endif
 
+#if CONFIG_APP_WEATHER_ENABLE
   // 13. Initialize Real-time Weather Service
   svc_weather_init();
+#endif
 
   ESP_LOGI(TAG, "Initialization Complete. Device ready.");
 

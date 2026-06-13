@@ -60,7 +60,6 @@ esp_err_t svc_nvs_rename_ir(const char *old_key, const char *new_key);
  * @return cJSON* JSON Array containing key strings
  */
 cJSON *svc_nvs_get_ir_keys(void);
-<<<<<<< HEAD
 
 /**
  * @brief Load custom brands from NVS
@@ -77,5 +76,3 @@ esp_err_t svc_nvs_load_custom_brands(cJSON **brands_array);
  * @return esp_err_t ESP_OK on success
  */
 esp_err_t svc_nvs_save_custom_brands(cJSON *brands_array);
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d

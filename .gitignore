@@ -17,3 +17,8 @@ idflint.log
 ota_server/__pycache__/
 ota_server/ota.db
 ota_server/uploads/
+
+# OS files
+.DS_Store
+**/.DS_Store
+

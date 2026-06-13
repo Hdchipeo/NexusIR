@@ -41,15 +41,9 @@ static esp_timer_handle_t s_restart_timer = NULL;
 // Data storage
 #define MAX_IR_SYMBOLS 600 // Safe size for DMA (Max < 4095 bytes)
 
-<<<<<<< HEAD
 // Dynamic buffer for learning (Made non-static for Matrix access)
 rmt_symbol_word_t *s_learning_symbols = NULL;
 uint32_t s_learning_num_symbols = 0;
-=======
-// Dynamic buffer for learning
-static rmt_symbol_word_t *s_learning_symbols = NULL;
-static uint32_t s_learning_num_symbols = 0;
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 static bool s_is_learning = false;
 static bool s_is_slave_mode = false;
 static mgr_ir_rx_cb_t s_rx_callback = NULL;
@@ -76,105 +70,7 @@ static void *mgr_ir_malloc(size_t size) {
 #define IR_DATA_MAGIC 0xA5
 #define PALETTE_TOLERANCE 100 // 100us tolerance for grouping
 
-typedef struct {
-  uint16_t duration;
-} ir_palette_item_t;
 
-// Find or add duration to palette
-static int app_ir_get_palette_idx(uint16_t duration, ir_palette_item_t *palette,
-                                  uint8_t *palette_size, uint8_t max_palette) {
-  for (int i = 0; i < *palette_size; i++) {
-    if (abs((int)palette[i].duration - (int)duration) <= PALETTE_TOLERANCE) {
-      return i;
-    }
-  }
-  if (*palette_size < max_palette) {
-    palette[*palette_size].duration = duration;
-    (*palette_size)++;
-    return (*palette_size) - 1;
-  }
-  return -1; // Palette full
-}
-
-/**
- * @brief Encode IR symbols using Palette-based compression (4-bit nibbles)
- * Format: [Magic:1][Count:4][PalSize:1][Palette:P*2][Data: ceil(N/2)]
- */
-<<<<<<< HEAD
-static __attribute__((unused)) size_t app_ir_encode(const rmt_symbol_word_t *src, uint32_t count,
-=======
-static size_t app_ir_encode(const rmt_symbol_word_t *src, uint32_t count,
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
-                            uint8_t *dst, size_t max_len) {
-  if (count == 0)
-    return 0;
-
-  ir_palette_item_t palette[16];
-  uint8_t palette_size = 0;
-  uint8_t *indices = (uint8_t *)mgr_ir_malloc(count); // Use mgr_ir_malloc
-  if (!indices)
-    return 0;
-
-  // 1. Build Palette and Indices
-  const uint16_t *src_items = (const uint16_t *)src; // Treat as u16 stream
-  bool success = true;
-
-  for (uint32_t i = 0; i < count; i++) {
-    uint16_t val = src_items[i];
-    uint16_t duration = val & 0x7FFF; // Ignore level for quantization
-
-    int idx = app_ir_get_palette_idx(duration, palette, &palette_size, 16);
-    if (idx < 0) {
-      // Fallback: If palette full, maybe too complex signal?
-      // For AC, 16 distinct durations is usually enough (Header, 0, 1, Repeat,
-      // End). If failed, we could fallback to raw or 8-bit, but 16 should cover
-      // 99% ACs.
-      ESP_LOGW(TAG, "IR Compression: Palette overflow (>16 unique durations)");
-      success = false;
-      break;
-    }
-    indices[i] = (uint8_t)idx;
-  }
-
-  if (!success) {
-    free(indices);
-    return 0;
-  }
-
-  // 2. Calculate Size
-  size_t data_len = (count + 1) / 2; // Packed 4-bit
-  size_t total_len = 1 + 4 + 1 + (palette_size * 2) + data_len;
-
-  if (total_len > max_len) {
-    free(indices);
-    return 0; // Buffer too small
-  }
-
-  // 3. Serialize
-  if (dst) {
-    uint8_t *p = dst;
-    *p++ = IR_DATA_MAGIC;
-    memcpy(p, &count, 4);
-    p += 4;
-    *p++ = palette_size;
-    for (int i = 0; i < palette_size; i++) {
-      memcpy(p, &palette[i].duration, 2);
-      p += 2;
-    }
-
-    memset(p, 0, data_len);
-    for (uint32_t i = 0; i < count; i++) {
-      if (i % 2 == 0) {
-        p[i / 2] |= (indices[i] & 0x0F) << 4; // High nibble
-      } else {
-        p[i / 2] |= (indices[i] & 0x0F); // Low nibble
-      }
-    }
-  }
-
-  free(indices);
-  return total_len;
-}
 
 static size_t app_ir_decode(const uint8_t *src, size_t src_len,
                             rmt_symbol_word_t *dst, size_t dst_max_bytes) {
@@ -682,15 +578,9 @@ esp_err_t mgr_ir_send_cmd(mgr_ir_cmd_t cmd) {
 
 bool mgr_ir_send_key_exists(const char *prefix, const char *brand,
                             const char *suffix) {
-<<<<<<< HEAD
   char short_brand[16] = {0};
   int idx = 0;
   for (int i = 0; brand[i] && idx < 15; i++) {
-=======
-  char short_brand[9] = {0};
-  int idx = 0;
-  for (int i = 0; brand[i] && idx < 8; i++) {
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
     char c = brand[i];
     if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
         (c >= '0' && c <= '9')) {
@@ -698,20 +588,12 @@ bool mgr_ir_send_key_exists(const char *prefix, const char *brand,
     }
   }
 
-<<<<<<< HEAD
   char key[32];
-=======
-  char key[16];
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
   snprintf(key, sizeof(key), "%s%s_%s", prefix, short_brand, suffix);
 
   // Normalize to uppercase — save path uses normalize_key (uppercase),
   // so lookup must match.
-<<<<<<< HEAD
   char upper_key[32] = {0};
-=======
-  char upper_key[16] = {0};
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
   normalize_key(upper_key, key, sizeof(upper_key));
 
   size_t loaded_size = 0;

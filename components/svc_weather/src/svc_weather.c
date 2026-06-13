@@ -1,3 +1,7 @@
+#include "sdkconfig.h"
+
+#if CONFIG_APP_WEATHER_ENABLE
+
 #include "svc_weather.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
@@ -8,15 +12,12 @@
 
 static const char *TAG = "SVC_WEATHER";
 
-<<<<<<< HEAD
 static float s_current_temp = 0.0f;
 static char s_current_desc[32] = "N/A";
 
 float svc_weather_get_temp(void) { return s_current_temp; }
 const char* svc_weather_get_desc(void) { return s_current_desc; }
 
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 // Open-Meteo Weather Codes Mapping
 static const char* get_weather_desc(int code) {
     switch (code) {
@@ -74,7 +75,6 @@ static void weather_task(void *pvParameters) {
                     cJSON *current = cJSON_GetObjectItem(root, "current_weather");
                     if (current) {
                         int weather_code = cJSON_GetObjectItem(current, "weathercode")->valueint;
-<<<<<<< HEAD
                         float temp = (float)cJSON_GetObjectItem(current, "temperature")->valuedouble;
                         const char *desc = get_weather_desc(weather_code);
                         
@@ -82,10 +82,6 @@ static void weather_task(void *pvParameters) {
                         strncpy(s_current_desc, desc, sizeof(s_current_desc) - 1);
                         
                         ESP_LOGI(TAG, "Weather: %.1f C, Code: %d, Desc: %s", temp, weather_code, desc);
-=======
-                        const char *desc = get_weather_desc(weather_code);
-                        ESP_LOGI(TAG, "Weather Code: %d, Desc: %s", weather_code, desc);
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
                         mgr_display_update_ui_weather_safe(desc);
                         mgr_display_update_ui_weather_code_safe(weather_code);
                     }
@@ -107,3 +103,21 @@ esp_err_t svc_weather_init(void) {
     xTaskCreate(weather_task, "weather_task", 8192, NULL, 5, NULL);
     return ESP_OK;
 }
+
+#else // !CONFIG_APP_WEATHER_ENABLE
+
+#include "svc_weather.h"
+
+esp_err_t svc_weather_init(void) {
+    return ESP_OK;
+}
+
+float svc_weather_get_temp(void) {
+    return 0.0f;
+}
+
+const char* svc_weather_get_desc(void) {
+    return "N/A";
+}
+
+#endif // CONFIG_APP_WEATHER_ENABLE

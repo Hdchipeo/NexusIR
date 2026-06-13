@@ -20,6 +20,8 @@ static EventGroupHandle_t wifi_event_group;
 static bool s_reconnect = true; // Control auto-reconnect
 static bool s_sntp_initialized = false;
 static uint32_t s_reconnect_count = 0; // Track reconnects for diagnostics
+static uint32_t s_consecutive_failures = 0; // Track consecutive connection failures
+#define MAX_WIFI_CONN_RETRIES 5
 
 static void init_sntp(void) {
   // Check if SNTP is already initialized (e.g., by RainMaker)
@@ -49,12 +51,27 @@ static void event_handler(void *arg, esp_event_base_t event_base,
   } else if (event_base == WIFI_EVENT &&
              event_id == WIFI_EVENT_STA_DISCONNECTED) {
     if (s_reconnect) {
-      vTaskDelay(pdMS_TO_TICKS(5000)); // 5s backoff to reduce heat
-      esp_wifi_connect();
+      s_consecutive_failures++;
+      ESP_LOGW(TAG, "Wi-Fi connection failed (%lu/%d)", s_consecutive_failures, MAX_WIFI_CONN_RETRIES);
+
+      if (s_consecutive_failures >= MAX_WIFI_CONN_RETRIES) {
+        ESP_LOGE(TAG, "Consecutive connection failures exceeded limit. Clearing credentials and falling back to provisioning mode...");
+        
+        // Clear custom SoftAP credentials
+        svc_wifi_prov_creds_clear();
+        // Restore/clear generic Wi-Fi driver credentials
+        esp_wifi_restore();
+        
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        esp_restart();
+      } else {
+        vTaskDelay(pdMS_TO_TICKS(5000)); // 5s backoff to reduce heat
+        esp_wifi_connect();
 #if CONFIG_APP_LED_CONTROL
-      drv_led_set_state(DRV_LED_WIFI_CONN);
+        drv_led_set_state(DRV_LED_WIFI_CONN);
 #endif
-      ESP_LOGI(TAG, "Retry to connect to the AP");
+        ESP_LOGI(TAG, "Retry to connect to the AP");
+      }
     } else {
       ESP_LOGI(TAG, "Auto-reconnect disabled (scanning/updating)");
     }
@@ -63,14 +80,12 @@ static void event_handler(void *arg, esp_event_base_t event_base,
   } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
     ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
     s_reconnect_count++;
+    s_consecutive_failures = 0; // Reset failure counter on successful connection
     ESP_LOGI(TAG, "Got IP:" IPSTR " (reconnect #%lu, ip_changed=%d)",
              IP2STR(&event->ip_info.ip), s_reconnect_count,
              event->ip_changed);
     xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
-<<<<<<< HEAD
     esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
     // Initialize SNTP once we have internet
     init_sntp();
@@ -110,6 +125,7 @@ void svc_wifi_init(void) {
 
 // app_wifi_start restored for RainMaker BLE Provisioning
 
+#if !(CONFIG_APP_WIFI_PROV_TRANSPORT_SOFTAP || (CONFIG_LAMP_PLATFORM_IOS && CONFIG_IOS_WIFI_PROV_AP_ENABLE))
 static void get_device_service_name(char *service_name, size_t max) {
   uint8_t eth_mac[6];
   const char *ssid_prefix = "PROV_";
@@ -117,6 +133,7 @@ static void get_device_service_name(char *service_name, size_t max) {
   snprintf(service_name, max, "%s%02X%02X%02X", ssid_prefix, eth_mac[3],
            eth_mac[4], eth_mac[5]);
 }
+#endif
 
 esp_err_t svc_wifi_start(void *pop_info) {
 #if CONFIG_APP_WIFI_PROV_TRANSPORT_SOFTAP ||                                   \
@@ -191,10 +208,7 @@ esp_err_t svc_wifi_start(void *pop_info) {
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
-<<<<<<< HEAD
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_MIN_MODEM));
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
   }
 #endif
 

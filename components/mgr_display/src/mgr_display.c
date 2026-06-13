@@ -12,11 +12,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
-<<<<<<< HEAD
 #include "freertos/timers.h"
 #include "driver/ledc.h"
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 #include "lvgl.h"
 
 static SemaphoreHandle_t lv_mux = NULL;
@@ -39,7 +36,6 @@ static const char *TAG = "MGR_DISPLAY";
 static esp_lcd_panel_handle_t panel_handle = NULL;
 static lv_disp_drv_t disp_drv; // Static to be used in callback context
 
-<<<<<<< HEAD
 static TimerHandle_t wake_timer = NULL;
 static bool s_is_dimmed = false;
 
@@ -61,8 +57,6 @@ static void wake_timer_cb(TimerHandle_t xTimer) {
   mgr_display_set_brightness(BRIGHTNESS_IDLE);
 }
 
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 // Function declarations from mgr_display_ui.c
 void mgr_display_ui_init(void);
 void mgr_display_update_ui_time(void);
@@ -71,11 +65,7 @@ void mgr_display_show_ui_notification(const char *device_name,
                                       const char *status);
 
 void mgr_display_activity_tick(void) {
-<<<<<<< HEAD
   mgr_display_wake();
-=======
-  gpio_set_level(LCD_GPIO_LED, 1); // Always ON
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 }
 
 static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area,
@@ -102,11 +92,6 @@ static void display_task(void *arg) {
     } else {
       ESP_LOGE(TAG, "CRITICAL: Display task blocked for 1000ms!");
     }
-<<<<<<< HEAD
-=======
-    // Keep backlight always ON
-    gpio_set_level(LCD_GPIO_LED, 1);
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
     // Cap delay to prevent display_task sleeping forever, but allow enough for
     // power saving
@@ -126,7 +111,6 @@ esp_err_t mgr_display_init(void) {
     return ESP_ERR_NO_MEM;
   }
 
-<<<<<<< HEAD
   // 1. Initialize Backlight with LEDC PWM
   ESP_LOGI(TAG, "Initializing Backlight PWM on GPIO %d (Channel 5, Timer 1)", LCD_GPIO_LED);
   ledc_timer_config_t ledc_timer = {
@@ -154,13 +138,6 @@ esp_err_t mgr_display_init(void) {
     return ESP_ERR_NO_MEM;
   }
   xTimerStart(wake_timer, 0);
-=======
-  // 1. Initialize Backlight
-  gpio_config_t bk_gpio_config = {.mode = GPIO_MODE_OUTPUT,
-                                  .pin_bit_mask = 1ULL << LCD_GPIO_LED};
-  gpio_config(&bk_gpio_config);
-  gpio_set_level(LCD_GPIO_LED, 1); // Turn on backlight
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
   // 2. Initialize SPI Bus
   spi_bus_config_t buscfg = {
@@ -312,7 +289,6 @@ void mgr_display_update_ui_time_safe(void) {
     ESP_LOGW(TAG, "UI Time Update SKIPPED: lock timeout");
   }
 }
-<<<<<<< HEAD
 
 void mgr_display_wake(void) {
   if (wake_timer == NULL)
@@ -323,6 +299,4 @@ void mgr_display_wake(void) {
 }
 
 bool mgr_display_is_dimmed(void) { return s_is_dimmed; }
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 #endif // CONFIG_APP_LCD_ENABLE

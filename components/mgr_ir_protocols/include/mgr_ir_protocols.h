@@ -19,17 +19,7 @@ typedef enum {
   APP_IR_CMD_MAX
 } mgr_ir_cmd_t;
 
-<<<<<<< HEAD
 // Note: mgr_ir_send_ac_state removed. Use mgr_ir_send_from_matrix instead.
-=======
-/**
- * @brief Send AC state
- * @param brand AC brand
- * @param state AC state
- * @return esp_err_t
- */
-esp_err_t mgr_ir_send_ac_state(int brand, const void *state);
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 /**
  * @brief Initialize IR Application
@@ -125,7 +115,6 @@ esp_err_t mgr_ir_send_raw(const uint16_t *durations, size_t count);
  * @return true if key exists
  */
 bool mgr_ir_send_key_exists(const char *prefix, const char *brand, const char *suffix);
-<<<<<<< HEAD
 /**
  * @brief Save the captured IR signal to a Matrix file (SPIFFS)
  * 
@@ -151,5 +140,3 @@ esp_err_t mgr_ir_send_from_matrix(const char *dev_id, int index);
  * @return true if exists
  */
 bool mgr_ir_matrix_exists(const char *dev_id);
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d

@@ -11,14 +11,11 @@
 
 #include "svc_espnow.h"
 #include "drv_led.h"
-<<<<<<< HEAD
 #include "mgr_display.h"
-=======
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
-
-static const char *TAG = "svc_espnow";
 
 #if CONFIG_APP_ESPNOW_BRIDGE_ENABLE || CONFIG_APP_ESPNOW_SLAVE_ENABLE
+
+static const char *TAG = "svc_espnow";
 
 #define PEER_NVS_NAMESPACE "espnow_ctrl"
 #define PEER_NVS_KEY "peers"
@@ -60,6 +57,9 @@ typedef struct {
       uint8_t idx;
       uint8_t state;
     } relay;
+    struct {
+      char device_name[32];
+    } discovery;
   };
 } espnow_packet_t;
 
@@ -90,6 +90,25 @@ static espnow_relay_handler_t s_relay_handler = NULL;
 static uint8_t s_peer_list[MAX_PEERS][6];
 static int s_peer_count = 0;
 
+static bool s_is_scanning = false;
+#define MAX_DISCOVERED_DEVICES 15
+static espnow_discovered_device_t s_discovered_devices[MAX_DISCOVERED_DEVICES];
+static int s_discovered_count = 0;
+
+static void add_to_discovered_list(const uint8_t *mac, const char *name) {
+  for (int i = 0; i < s_discovered_count; i++) {
+    if (memcmp(s_discovered_devices[i].mac, mac, 6) == 0) {
+      return;
+    }
+  }
+  if (s_discovered_count < MAX_DISCOVERED_DEVICES) {
+    memcpy(s_discovered_devices[s_discovered_count].mac, mac, 6);
+    strncpy(s_discovered_devices[s_discovered_count].name, name, sizeof(s_discovered_devices[s_discovered_count].name) - 1);
+    s_discovered_devices[s_discovered_count].name[sizeof(s_discovered_devices[s_discovered_count].name) - 1] = '\0';
+    s_discovered_count++;
+  }
+}
+
 void svc_espnow_register_ac_handler(espnow_ac_handler_t handler) {
   s_ac_handler = handler;
 }
@@ -110,15 +129,9 @@ void svc_espnow_register_relay_handler(espnow_relay_handler_t handler) {
   s_relay_handler = handler;
 }
 
-<<<<<<< HEAD
 static void espnow_recv_cb(const esp_now_recv_info_t *recv_info,
                            const uint8_t *data, int len) {
   mgr_display_wake();
-=======
-#if CONFIG_APP_ESPNOW_SLAVE_ENABLE
-static void espnow_recv_cb(const esp_now_recv_info_t *recv_info,
-                           const uint8_t *data, int len) {
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
   if (len != sizeof(espnow_packet_t)) {
     ESP_LOGW(TAG, "Received invalid ESP-NOW packet size: %d", len);
     return;
@@ -168,12 +181,32 @@ static void espnow_recv_cb(const esp_now_recv_info_t *recv_info,
     if (s_relay_handler) {
       s_relay_handler(pkt->relay.idx, pkt->relay.state);
     }
+  } else if (pkt->type == ESPNOW_TYPE_DISCOVERY_REQ) {
+    ESP_LOGI(TAG, "Received ESP-NOW Discovery Request from " MACSTR, MAC2STR(recv_info->src_addr));
+    espnow_packet_t resp;
+    memset(&resp, 0, sizeof(resp));
+    resp.type = ESPNOW_TYPE_DISCOVERY_RESP;
+    strncpy(resp.discovery.device_name, CONFIG_APP_DEVICE_NAME, sizeof(resp.discovery.device_name) - 1);
+
+    esp_now_peer_info_t peer_info = {0};
+    memcpy(peer_info.peer_addr, recv_info->src_addr, 6);
+    peer_info.channel = 0;
+    peer_info.encrypt = false;
+
+    peer_info.ifidx = WIFI_IF_STA;
+    esp_now_add_peer(&peer_info);
+
+    peer_info.ifidx = WIFI_IF_AP;
+    esp_now_add_peer(&peer_info);
+
+    esp_now_send(recv_info->src_addr, (uint8_t *)&resp, sizeof(resp));
+  } else if (pkt->type == ESPNOW_TYPE_DISCOVERY_RESP) {
+    ESP_LOGI(TAG, "Received ESP-NOW Discovery Response from " MACSTR ": %s", MAC2STR(recv_info->src_addr), pkt->discovery.device_name);
+    if (s_is_scanning) {
+      add_to_discovered_list(recv_info->src_addr, pkt->discovery.device_name);
+    }
   }
 }
-<<<<<<< HEAD
-=======
-#endif
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
 static bool parse_mac_address(const char *str, uint8_t *mac) {
   if (!str || strlen(str) != 17)
@@ -229,12 +262,21 @@ esp_err_t svc_espnow_add_peer(const uint8_t *mac) {
   peer_info.channel = 0;
   peer_info.encrypt = false;
   
-  esp_err_t err = esp_now_add_peer(&peer_info);
-  if (err == ESP_OK) {
+  peer_info.ifidx = WIFI_IF_STA;
+  esp_err_t err_sta = esp_now_add_peer(&peer_info);
+
+  peer_info.ifidx = WIFI_IF_AP;
+  esp_err_t err_ap = esp_now_add_peer(&peer_info);
+
+  bool success = (err_sta == ESP_OK || err_sta == ESP_ERR_ESPNOW_EXIST ||
+                  err_ap == ESP_OK || err_ap == ESP_ERR_ESPNOW_EXIST);
+
+  if (success) {
     memcpy(s_peer_list[s_peer_count++], mac, 6);
     save_peers_to_nvs();
+    return ESP_OK;
   }
-  return err;
+  return err_sta;
 }
 
 esp_err_t svc_espnow_remove_peer(const uint8_t *mac) {
@@ -266,15 +308,8 @@ esp_err_t svc_espnow_init(void) {
 
   ESP_ERROR_CHECK(esp_now_init());
 
-<<<<<<< HEAD
   ESP_ERROR_CHECK(esp_now_register_recv_cb(espnow_recv_cb));
   ESP_LOGI(TAG, "ESP-NOW listener active.");
-=======
-#if CONFIG_APP_ESPNOW_SLAVE_ENABLE
-  ESP_ERROR_CHECK(esp_now_register_recv_cb(espnow_recv_cb));
-  ESP_LOGI(TAG, "ESP-NOW Slave listener active.");
-#endif
->>>>>>> 23262fa7d5edab1511d7550405a5120c98d1e31d
 
   // Default peer from config
   if (!parse_mac_address(CONFIG_APP_ESPNOW_PEER_MAC, s_target_mac)) {
@@ -474,11 +509,66 @@ esp_err_t svc_espnow_bridge_relay_send(uint8_t idx, bool state) {
   return ESP_OK;
 }
 
+int svc_espnow_scan_peers(espnow_discovered_device_t *devices, int max_devices) {
+  s_discovered_count = 0;
+  s_is_scanning = true;
+
+  espnow_packet_t pkt;
+  memset(&pkt, 0, sizeof(pkt));
+  pkt.type = ESPNOW_TYPE_DISCOVERY_REQ;
+
+  uint8_t broadcast_mac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  esp_now_peer_info_t peer_info = {0};
+  memcpy(peer_info.peer_addr, broadcast_mac, 6);
+  peer_info.channel = 0;
+  peer_info.encrypt = false;
+
+  peer_info.ifidx = WIFI_IF_STA;
+  esp_now_add_peer(&peer_info);
+
+  peer_info.ifidx = WIFI_IF_AP;
+  esp_now_add_peer(&peer_info);
+
+  ESP_LOGI(TAG, "Broadcasting ESP-NOW Discovery Request...");
+  esp_now_send(broadcast_mac, (uint8_t *)&pkt, sizeof(pkt));
+
+  // Wait 1500ms to gather responses
+  vTaskDelay(pdMS_TO_TICKS(1500));
+
+  s_is_scanning = false;
+
+  int count = s_discovered_count;
+  if (count > max_devices) count = max_devices;
+
+  if (devices && count > 0) {
+    memcpy(devices, s_discovered_devices, count * sizeof(espnow_discovered_device_t));
+  }
+  return count;
+}
+
 
 #else // If BRIDGE or SLAVE NOT enabled
 
 esp_err_t svc_espnow_init(void) {
   return ESP_OK;
 }
+
+void svc_espnow_register_ac_handler(espnow_ac_handler_t handler) {}
+void svc_espnow_register_led_handler(espnow_led_handler_t handler) {}
+void svc_espnow_register_fan_handler(espnow_fan_handler_t handler) {}
+void svc_espnow_register_temp_handler(espnow_temp_handler_t handler) {}
+void svc_espnow_register_relay_handler(espnow_relay_handler_t handler) {}
+
+esp_err_t svc_espnow_bridge_ac_send(const ir_ac_state_t *state, ac_brand_t brand, const char *custom_name) { return ESP_OK; }
+esp_err_t svc_espnow_bridge_led_send(uint8_t lamp_id, uint8_t power, uint8_t effect, uint8_t brightness, uint8_t r, uint8_t g, uint8_t b, uint8_t speed) { return ESP_OK; }
+esp_err_t svc_espnow_bridge_led_send_to(const uint8_t *mac, uint8_t lamp_id, uint8_t power, uint8_t effect, uint8_t brightness, uint8_t r, uint8_t g, uint8_t b, uint8_t speed) { return ESP_OK; }
+esp_err_t svc_espnow_bridge_fan_send(const ir_fan_state_t *state, fan_brand_t brand, const char *custom_name) { return ESP_OK; }
+esp_err_t svc_espnow_bridge_temp_send(float temperature, float humidity) { return ESP_OK; }
+esp_err_t svc_espnow_bridge_relay_send(uint8_t idx, bool state) { return ESP_OK; }
+
+esp_err_t svc_espnow_add_peer(const uint8_t *mac) { return ESP_OK; }
+esp_err_t svc_espnow_remove_peer(const uint8_t *mac) { return ESP_OK; }
+esp_err_t svc_espnow_get_peers(uint8_t *mac_list, int *count) { if (count) *count = 0; return ESP_OK; }
+int svc_espnow_scan_peers(espnow_discovered_device_t *devices, int max_devices) { return 0; }
 
 #endif // CONFIG_APP_ESPNOW_BRIDGE_ENABLE || CONFIG_APP_ESPNOW_SLAVE_ENABLE
