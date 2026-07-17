@@ -27,6 +27,7 @@
 #include "mgr_display.h"
 
 
+#if CONFIG_LAMP_PLATFORM_ANDROID
 // RainMaker headers
 #include <esp_rmaker_common_events.h>
 #include <esp_rmaker_console.h>
@@ -34,13 +35,16 @@
 #include <esp_rmaker_schedule.h>
 #include <esp_rmaker_standard_devices.h>
 #include <esp_rmaker_standard_params.h>
+#endif
 
 #define TAG "main"
 
+#if CONFIG_LAMP_PLATFORM_ANDROID
 // Suppress verbose RainMaker param logs (sensor reporting spam)
 __attribute__((constructor)) static void suppress_rmaker_logs(void) {
   esp_log_level_set("esp_rmaker_param", ESP_LOG_WARN);
 }
+#endif
 #if CONFIG_LAMP_PLATFORM_ANDROID
 static void web_ui_toggle_cb(bool enable) {
   if (enable) {
@@ -94,8 +98,11 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base,
   }
 }
 
+#if CONFIG_APP_ESPNOW_BRIDGE_ENABLE || CONFIG_APP_ESPNOW_SLAVE_ENABLE
 static bool s_espnow_rx_in_progress = false;
+#endif
 
+#if CONFIG_APP_ESPNOW_BRIDGE_ENABLE
 // --- Master (Bridge) Adaptors ---
 static void ac_bridge_send_adaptor(const ir_ac_state_t *state, ac_brand_t brand,
                                    const char *custom_name) {
@@ -143,6 +150,9 @@ static void relay_bridge_send_adaptor(uint8_t idx, bool state) {
 #endif
 }
 
+#endif // CONFIG_APP_ESPNOW_BRIDGE_ENABLE
+
+#if CONFIG_APP_ESPNOW_BRIDGE_ENABLE || CONFIG_APP_ESPNOW_SLAVE_ENABLE
 // --- Slave (Receiver) Adaptors ---
 static void ac_espnow_handler_adaptor(const ir_ac_state_t *state,
                                       ac_brand_t brand,
@@ -211,6 +221,8 @@ static void relay_espnow_handler_adaptor(uint8_t idx, bool state) {
   s_espnow_rx_in_progress = false;
 }
 
+#endif // ESP-NOW Adaptors
+
 // --- Temperature ESP-NOW ---
 #if CONFIG_LAMP_SENSOR_AHT20
 static void temp_update_task(void *arg) {
@@ -269,10 +281,13 @@ void app_main(void) {
   ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
                                              &ip_event_handler, NULL));
 
-  // 3. Initialize IR Remote (Priority for RMT resources)
+  // 3. Initialize IR Remote (only needed when AC/Fan uses local IR)
+#if defined(CONFIG_APP_ESPNOW_AC_SLAVE) || defined(CONFIG_APP_ESPNOW_AC_STANDALONE) || \
+    defined(CONFIG_APP_ESPNOW_FAN_SLAVE) || defined(CONFIG_APP_ESPNOW_FAN_STANDALONE)
   if (mgr_ir_init() != ESP_OK) {
     ESP_LOGE(TAG, "Failed to init IR");
   }
+#endif
 
 #if CONFIG_APP_LCD_ENABLE
   mgr_display_init();
@@ -294,27 +309,31 @@ void app_main(void) {
   mgr_fan_init();
 #endif
 
+#ifndef CONFIG_APP_ESPNOW_RELAY_DISABLED
   mgr_relay_init();
+#endif
 
   // 6. Initialize Wi-Fi Stack
   svc_wifi_init();
+#if CONFIG_APP_ESPNOW_BRIDGE_ENABLE || CONFIG_APP_ESPNOW_SLAVE_ENABLE
   svc_espnow_init();
 
-  // Register Synchronization Callbacks
+#if CONFIG_APP_ESPNOW_BRIDGE_ENABLE
+  // Register Synchronization Callbacks (Master → Slave)
   mgr_ac_set_bridge_cb(ac_bridge_send_adaptor);
   mgr_fan_set_bridge_cb(fan_bridge_send_adaptor);
   drv_led_set_bridge_cb(led_bridge_send_adaptor);
   mgr_relay_set_bridge_cb(relay_bridge_send_adaptor);
+#endif // CONFIG_APP_ESPNOW_BRIDGE_ENABLE
 
-#if CONFIG_APP_ESPNOW_BRIDGE_ENABLE || CONFIG_APP_ESPNOW_SLAVE_ENABLE
-  mgr_ir_start_slave(); 
-#endif
+  mgr_ir_start_slave();
 
   // Register ESP-NOW Handlers
   svc_espnow_register_ac_handler(ac_espnow_handler_adaptor);
   svc_espnow_register_led_handler(led_espnow_handler_adaptor);
   svc_espnow_register_fan_handler(fan_espnow_handler_adaptor);
   svc_espnow_register_relay_handler(relay_espnow_handler_adaptor);
+#endif // ESP-NOW
 
 #if CONFIG_APP_LCD_ENABLE
   svc_espnow_register_temp_handler(temp_espnow_handler);
