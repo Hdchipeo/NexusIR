@@ -497,6 +497,38 @@ menu "ESP-NOW Configuration"
         bool
         default y if APP_LED1_CONTROL || APP_LED2_CONTROL || APP_LED3_CONTROL || APP_LED4_CONTROL || APP_LED5_CONTROL
 
+    choice APP_LED_STRIP_COLOR_ORDER
+        prompt "Addressable LED Strip Color Order"
+        default APP_LED_STRIP_COLOR_ORDER_GRB
+        depends on APP_LED_CONTROL
+        help
+            Select the physical color order used by the LED strip chipset.
+            Most WS2812B strips use GRB. Some clones use RGB or another order.
+
+        config APP_LED_STRIP_COLOR_ORDER_GRB
+            bool "GRB (most WS2812B)"
+        config APP_LED_STRIP_COLOR_ORDER_RGB
+            bool "RGB"
+        config APP_LED_STRIP_COLOR_ORDER_BRG
+            bool "BRG"
+        config APP_LED_STRIP_COLOR_ORDER_RBG
+            bool "RBG"
+        config APP_LED_STRIP_COLOR_ORDER_BGR
+            bool "BGR"
+        config APP_LED_STRIP_COLOR_ORDER_GBR
+            bool "GBR"
+    endchoice
+
+    config APP_LED_STRIP_MAX_OUTPUT
+        int "Addressable LED Strip Max Output"
+        range 1 255
+        default 80
+        depends on APP_LED_CONTROL
+        help
+            Caps the per-channel LED output sent to the strip. 80 keeps a
+            12-pixel WS2812 ring stable on small ESP32 boards/USB power while
+            HomeKit brightness still maps 0-100% within this safe range.
+
     config APP_ESPNOW_BRIDGE_ENABLE
         bool
         default y if APP_ESPNOW_AC_MASTER || APP_ESPNOW_FAN_MASTER || APP_ESPNOW_TEMP_SLAVE || APP_ESPNOW_LED1_MASTER || APP_ESPNOW_LED2_MASTER || APP_ESPNOW_LED3_MASTER || APP_ESPNOW_LED4_MASTER || APP_ESPNOW_LED5_MASTER || APP_ESPNOW_RELAY_MASTER
@@ -561,6 +593,13 @@ menu "Mobile Platform"
             Initialize HomeKit Accessory Server and bridge functionality.
             Only applicable for iOS/HomeKit platform.
 
+    config APP_HOMEKIT_ACCESSORY_NAME
+        string "HomeKit Accessory Name"
+        default "NexusIR Bridge"
+        depends on APP_HOMEKIT_ENABLE
+        help
+            The name of the primary HomeKit accessory bridge (hap_acc_cfg_t.name).
+
 endmenu
 
 # =============================================================================
@@ -593,6 +632,13 @@ menu "WiFi Configuration"
     config APP_WIFI_FALLBACK_PASSWORD
         string "Fallback AP Password"
         default "12345678"
+
+    config APP_MDNS_HOSTNAME
+        string "mDNS Hostname Prefix"
+        default "nexusir"
+        help
+            Prefix for the mDNS hostname and instance name. The MAC suffix (last 2 bytes)
+            will be appended to prevent conflicts.
 
 endmenu
 

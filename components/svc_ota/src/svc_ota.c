@@ -125,6 +125,8 @@ void svc_ota_mark_valid(void) {
 
 /* --- OTA Task --- */
 
+static volatile bool s_ota_in_progress = false;
+
 static void ota_task(void *pvParameter) {
   ota_task_args_t *args = (ota_task_args_t *)pvParameter;
   ESP_LOGI(TAG, "Starting OTA task with URL: %s", args->url);
@@ -139,6 +141,10 @@ static void ota_task(void *pvParameter) {
   if (largest_block < 10000) {
     ESP_LOGE(TAG,
              "Insufficient heap for OTA! Need at least 10KB contiguous block");
+    s_ota_in_progress = false;
+    if (s_ota_task_handle) {
+      vTaskResume(s_ota_task_handle);
+    }
     free(args);
     vTaskDelete(NULL);
     return;
@@ -179,6 +185,11 @@ static void ota_task(void *pvParameter) {
   } else {
     ESP_LOGE(TAG, "OTA Failed: %s", esp_err_to_name(ret));
     drv_led_set_state(DRV_LED_IDLE);
+    s_ota_in_progress = false;
+    // Resume auto-update task so it can retry on next interval
+    if (s_ota_task_handle) {
+      vTaskResume(s_ota_task_handle);
+    }
   }
 
   free(args);
@@ -188,6 +199,11 @@ static void ota_task(void *pvParameter) {
 esp_err_t svc_ota_start(const char *url) {
   if (url == NULL || strlen(url) == 0) {
     return ESP_ERR_INVALID_ARG;
+  }
+
+  if (s_ota_in_progress) {
+    ESP_LOGW(TAG, "OTA already in progress, skipping");
+    return ESP_ERR_INVALID_STATE;
   }
 
   ota_task_args_t *args = malloc(sizeof(ota_task_args_t));
@@ -200,8 +216,11 @@ esp_err_t svc_ota_start(const char *url) {
   // If invoked manually via API, we might not have version.
   strncpy(args->version, g_remote_version, sizeof(args->version) - 1);
 
+  s_ota_in_progress = true;
+
   if (xTaskCreate(ota_task, "ota_task", 8192, args, 5, NULL) != pdPASS) {
     ESP_LOGE(TAG, "Failed to create OTA task");
+    s_ota_in_progress = false;
     free(args);
     return ESP_FAIL;
   }
@@ -218,22 +237,39 @@ static int parse_version(const char *version_str) {
 esp_err_t svc_ota_check_version(char *out_remote_version, size_t buf_len) {
   // Check if time is synced before making HTTPS request
   // TLS certificate validation requires correct system time
-  time_t now;
-  struct tm timeinfo;
-  time(&now);
-  localtime_r(&now, &timeinfo);
-  if (timeinfo.tm_year < (2020 - 1900)) {
-    ESP_LOGW(TAG, "Time not synced (Year %d), cannot verify TLS certificate",
-             timeinfo.tm_year + 1900);
-    return ESP_ERR_INVALID_STATE;
+  if (strncmp(CONFIG_OTA_SERVER_URL, "https://", 8) == 0) {
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    if (timeinfo.tm_year < (2020 - 1900)) {
+      ESP_LOGW(TAG, "Time not synced (Year %d), cannot verify TLS certificate",
+               timeinfo.tm_year + 1900);
+      return ESP_ERR_INVALID_STATE;
+    }
   }
+
+  // URL-encode the device name (convert spaces to %20)
+  char encoded_name[128];
+  int idx = 0;
+  for (int i = 0; CONFIG_APP_DEVICE_NAME[i] != '\0' && idx < sizeof(encoded_name) - 4; i++) {
+    if (CONFIG_APP_DEVICE_NAME[i] == ' ') {
+      strcpy(&encoded_name[idx], "%20");
+      idx += 3;
+    } else {
+      encoded_name[idx++] = CONFIG_APP_DEVICE_NAME[i];
+    }
+  }
+  encoded_name[idx] = '\0';
 
   char url[256];
   uint8_t mac[6];
   esp_read_mac(mac, ESP_MAC_WIFI_STA);
-  snprintf(url, sizeof(url), "%s/version.txt?v=%s&device_id=%02x%02x%02x%02x%02x%02x", 
+  snprintf(url, sizeof(url), "%s/version.txt?v=%s&device_id=%02x%02x%02x%02x%02x%02x&device_name=%s", 
            CONFIG_OTA_SERVER_URL, PROJECT_VERSION, 
-           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+           encoded_name);
+
 
   esp_http_client_config_t config = {
       .url = url,
@@ -300,15 +336,23 @@ static void auto_update_task(void *pvParameter) {
       continue;
     }
 
-    // Wait for time sync (simple check for year > 2020)
-    time_t now;
-    struct tm timeinfo;
-    time(&now);
-    localtime_r(&now, &timeinfo);
-    if (timeinfo.tm_year < (2020 - 1900)) {
-      ESP_LOGW(TAG, "Time not synced yet (Year %d < 2020), waiting...",
-               timeinfo.tm_year + 1900);
-      vTaskDelay(pdMS_TO_TICKS(2000));
+    // Wait for time sync (simple check for year > 2020) - only for HTTPS URLs
+    if (strncmp(CONFIG_OTA_SERVER_URL, "https://", 8) == 0) {
+      time_t now;
+      struct tm timeinfo;
+      time(&now);
+      localtime_r(&now, &timeinfo);
+      if (timeinfo.tm_year < (2020 - 1900)) {
+        ESP_LOGW(TAG, "Time not synced yet (Year %d < 2020), waiting...",
+                 timeinfo.tm_year + 1900);
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        continue;
+      }
+    }
+
+    // Skip if OTA is already in progress
+    if (s_ota_in_progress) {
+      vTaskDelay(pdMS_TO_TICKS(5000));
       continue;
     }
 
@@ -329,6 +373,9 @@ static void auto_update_task(void *pvParameter) {
         snprintf(url, sizeof(url), "%s/nexus-ir.bin?device_id=%02x%02x%02x%02x%02x%02x",
                  CONFIG_OTA_SERVER_URL, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         svc_ota_start(url);
+        // OTA started — suspend this task. Device will reboot on success.
+        // On failure, s_ota_in_progress is cleared and next cycle will retry.
+        vTaskSuspend(NULL);
       } else {
         g_update_available = false;
       }

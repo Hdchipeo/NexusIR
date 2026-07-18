@@ -69,11 +69,17 @@ static hap_char_t *s_relay_on_char[2] = {NULL};
 
 static float s_led_h[MAX_LEDS] = {0.0f};
 static float s_led_s[MAX_LEDS] = {0.0f};
-static int s_led_v[MAX_LEDS] = {100};
+static int s_led_v[MAX_LEDS] = {100, 100, 100, 100, 100};
 static bool s_led_on[MAX_LEDS] = {false};
 
 static void helper_hsv2rgb(float h, float s, float v, uint8_t *r, uint8_t *g,
                            uint8_t *b) {
+  h = fmodf(h, 360.0f);
+  if (h < 0.0f) h += 360.0f;
+  if (s < 0.0f) s = 0.0f;
+  if (s > 100.0f) s = 100.0f;
+  if (v < 0.0f) v = 0.0f;
+  if (v > 100.0f) v = 100.0f;
   s /= 100.0f;
   v /= 100.0f;
   int i = (int)(h / 60.0f);
@@ -112,7 +118,12 @@ static int led_write(hap_write_data_t write_data[], int count, void *serv_priv,
   uint8_t lamp_id = (uint8_t)(uint32_t)serv_priv;
   if (lamp_id >= MAX_LEDS) return HAP_FAIL;
   
+  // Begin batch: all set_* calls below will only modify data,
+  // no mutex lock, no hardware apply, no ESP-NOW bridge.
+  drv_led_begin_update(lamp_id);
+
   bool update_color = false;
+  bool hue_changed = false;
   for (int i = 0; i < count; i++) {
     hap_write_data_t *data = &write_data[i];
     const char *uuid = hap_char_get_type_uuid(data->hc);
@@ -122,7 +133,10 @@ static int led_write(hap_write_data_t write_data[], int count, void *serv_priv,
       drv_led_set_power(lamp_id, s_led_on[lamp_id] ? 1 : 0);
       if (s_led_on[lamp_id]) {
         drv_led_set_effect(lamp_id, DRV_LED_EFFECT_STATIC);
-        drv_led_set_state(DRV_LED_IDLE);
+        // Lightweight state transition: only set the global state flag.
+        // The led_task will pick this up on its next 100ms cycle.
+        // Avoids locking mutex and applying all 5 LEDs synchronously.
+        drv_led_set_state_isr(DRV_LED_IDLE);
       }
     } else if (strcmp(uuid, HAP_CHAR_UUID_BRIGHTNESS) == 0) {
       s_led_v[lamp_id] = data->val.i;
@@ -131,6 +145,7 @@ static int led_write(hap_write_data_t write_data[], int count, void *serv_priv,
     } else if (strcmp(uuid, HAP_CHAR_UUID_HUE) == 0) {
       s_led_h[lamp_id] = data->val.f;
       update_color = true;
+      hue_changed = true;
     } else if (strcmp(uuid, HAP_CHAR_UUID_SATURATION) == 0) {
       s_led_s[lamp_id] = data->val.f;
       update_color = true;
@@ -141,13 +156,23 @@ static int led_write(hap_write_data_t write_data[], int count, void *serv_priv,
   }
 
   if (update_color) {
+    if (hue_changed && s_led_s[lamp_id] <= 0.0f) {
+      s_led_s[lamp_id] = 100.0f;
+      hap_val_t sat_val = {.f = s_led_s[lamp_id]};
+      hap_char_update_val(s_led_sat_char[lamp_id], &sat_val);
+    }
+
     uint8_t r, g, b;
     helper_hsv2rgb(s_led_h[lamp_id], s_led_s[lamp_id], 100.0f, &r, &g, &b);
-    drv_led_set_color(lamp_id, r, g, b);
     if (s_led_on[lamp_id]) {
+      drv_led_set_state_isr(DRV_LED_IDLE);
       drv_led_set_effect(lamp_id, DRV_LED_EFFECT_STATIC);
     }
+    drv_led_set_color(lamp_id, r, g, b);
   }
+
+  // Commit batch: single mutex lock + single LED apply + single bridge callback.
+  drv_led_commit_update(lamp_id);
 
   return HAP_SUCCESS;
 }
@@ -478,6 +503,11 @@ void int_homekit_update_led(uint8_t lamp_id, uint8_t power, uint8_t effect, uint
   hap_char_update_val(s_led_hue_char[lamp_id], &val);
   val.f = s * 100.0f;
   hap_char_update_val(s_led_sat_char[lamp_id], &val);
+
+  s_led_on[lamp_id] = power > 0;
+  s_led_v[lamp_id] = brightness;
+  s_led_h[lamp_id] = h * 360.0f;
+  s_led_s[lamp_id] = s * 100.0f;
 }
 
 void int_homekit_update_fan_state(const ir_fan_state_t *state) {
@@ -558,7 +588,7 @@ esp_err_t int_homekit_init(void) {
   // 2. Create BRIDGE Accessory (Primary)
   // -------------------------------------------------------------------------
   hap_acc_cfg_t bridge_cfg = {
-      .name = "NexusIR Bridge",
+      .name = CONFIG_APP_HOMEKIT_ACCESSORY_NAME,
       .manufacturer = "NexusIR Inc",
       .model = "LP-BRIDGE-01",
       .serial_num = serial,
@@ -731,10 +761,10 @@ esp_err_t int_homekit_init(void) {
         s_led_brightness_char[i] = hap_char_brightness_create(100);
         hap_serv_add_char(s_led_service[i], s_led_brightness_char[i]);
 
-        s_led_hue_char[i] = hap_char_hue_create(0);
+        s_led_hue_char[i] = hap_char_hue_create(120);
         hap_serv_add_char(s_led_service[i], s_led_hue_char[i]);
 
-        s_led_sat_char[i] = hap_char_saturation_create(0);
+        s_led_sat_char[i] = hap_char_saturation_create(100);
         hap_serv_add_char(s_led_service[i], s_led_sat_char[i]);
 
         s_led_on_char[i] = hap_serv_get_char_by_uuid(s_led_service[i], HAP_CHAR_UUID_ON);
@@ -1029,6 +1059,19 @@ esp_err_t int_homekit_init(void) {
     int_homekit_update_fan_state(&fan_state);
     ESP_LOGI(TAG, "Restored fan state: Power=%d, Speed=%d, Swing=%d", 
              fan_state.power, fan_state.speed, fan_state.swing);
+  }
+
+  // Restore LED characteristics and local HSV cache from the driver state.
+  for (int i = 0; i < MAX_LEDS; i++) {
+    if (!s_led_service[i]) continue;
+
+    uint8_t power = 0, r = 0, g = 0, b = 0, brightness = 100, speed = 50;
+    drv_led_effect_t effect = DRV_LED_EFFECT_STATIC;
+    if (drv_led_get_config(i, &power, &r, &g, &b, &effect, &brightness, &speed) == ESP_OK) {
+      int_homekit_update_led(i, power, (uint8_t)effect, brightness, r, g, b, speed);
+      ESP_LOGI(TAG, "Restored LED %d: Power=%d, Brightness=%d, RGB=%u,%u,%u",
+               i, power, brightness, r, g, b);
+    }
   }
 
   ESP_LOGI(TAG, "HomeKit state restoration complete");

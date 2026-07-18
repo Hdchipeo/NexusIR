@@ -4,6 +4,8 @@
 #include <esp_log.h>
 #include <mdns.h>
 #include <string.h>
+#include "sdkconfig.h"
+
 static const char *TAG = "svc_mdns";
 
 esp_err_t svc_mdns_init(void) {
@@ -13,10 +15,14 @@ esp_err_t svc_mdns_init(void) {
   char hostname[32];
   char instance_name[64];
 
-  // Create unique names based on MAC (e.g., nexusir-7f9c)
-  snprintf(hostname, sizeof(hostname), "nexusir-%02x%02x", mac[4], mac[5]);
-  snprintf(instance_name, sizeof(instance_name), "NexusIR-%02x%02x Web Config",
-           mac[4], mac[5]);
+  // Create unique names based on MAC (e.g., prefix-7f9c)
+  // snprintf(hostname, sizeof(hostname), "%s-%02x%02x", CONFIG_APP_MDNS_HOSTNAME, mac[4], mac[5]);
+  // snprintf(instance_name, sizeof(instance_name), "%s-%02x%02x Web Config",
+  //          CONFIG_APP_MDNS_HOSTNAME, mac[4], mac[5]);
+
+  snprintf(hostname, sizeof(hostname), "%s", CONFIG_APP_MDNS_HOSTNAME);
+  snprintf(instance_name, sizeof(instance_name), "%s Web Config",
+           CONFIG_APP_MDNS_HOSTNAME);
 
   // Initialize mDNS
   esp_err_t err = mdns_init();

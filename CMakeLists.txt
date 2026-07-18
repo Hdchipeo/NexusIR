@@ -6,7 +6,7 @@ set(EXTRA_COMPONENT_DIRS
 
 # set(EXCLUDE_COMPONENTS button)
 # set project version
-set(PROJECT_VERSION "1.4.2")
+set(PROJECT_VERSION "1.5.8")
 add_compile_definitions(PROJECT_VERSION=\"${PROJECT_VERSION}\")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)

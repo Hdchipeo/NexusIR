@@ -4,14 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NexusIR OTA Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=4">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="app-container">
         <aside class="sidebar">
             <div class="logo">
-                <div class="logo-icon"></div>
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
                 <span>NexusIR</span>
             </div>
             <nav>
@@ -33,59 +35,158 @@
         <main class="content">
             <header class="top-bar">
                 <h1 id="page-title">Dashboard</h1>
-                <div class="user-info">
-                    <span class="status-dot"></span>
-                    Server Online
-                </div>
             </header>
 
+            <!-- ===== DASHBOARD ===== -->
             <section id="dashboard-section" class="tab-content active">
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <label>Active Devices</label>
-                        <h2 id="stat-devices">0</h2>
+                <div class="dashboard-top-grid">
+                    <!-- Top Left: Version Distribution -->
+                    <div class="glass-card chart-card">
+                        <div class="card-header">
+                            <h3>Version Distribution</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="version-chart" class="chart-container horizontal-bars"></div>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <label>Current Version</label>
-                        <h2 id="stat-version">v1.4.2</h2>
+
+                    <!-- Top Middle: Vertically Stacked Mini Cards -->
+                    <div class="stacked-metrics">
+                        <div class="mini-card highlight-blue">
+                            <div class="mini-card-icon">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                            </div>
+                            <div class="mini-card-info">
+                                <label>Total Devices</label>
+                                <h3 id="stat-devices">0</h3>
+                            </div>
+                        </div>
+                        <div class="mini-card highlight-green">
+                            <div class="mini-card-icon">
+                                <span class="mini-pulse-dot"></span>
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            </div>
+                            <div class="mini-card-info">
+                                <label>Online Devices</label>
+                                <h3 id="stat-online">0</h3>
+                            </div>
+                        </div>
+                        <div class="mini-card highlight-yellow">
+                            <div class="mini-card-icon">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                            </div>
+                            <div class="mini-card-info">
+                                <label>Active Version</label>
+                                <h3 id="stat-version">--</h3>
+                            </div>
+                        </div>
+                        <div class="mini-card highlight-purple">
+                            <div class="mini-card-icon">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </div>
+                            <div class="mini-card-info">
+                                <label>Total Firmware</label>
+                                <h3 id="stat-total-versions">0</h3>
+                            </div>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <label>Last Deployment</label>
-                        <h2 id="stat-date">--</h2>
+
+                    <!-- Top Right: Donut Chart -->
+                    <div class="glass-card donut-card">
+                        <div class="card-header">
+                            <h3>Device Status</h3>
+                        </div>
+                        <div class="card-body donut-chart-body">
+                            <div class="donut-chart-container">
+                                <svg width="140" height="140" viewBox="0 0 140 140" class="donut-svg">
+                                    <circle class="donut-ring" cx="70" cy="70" r="55" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12"></circle>
+                                    <circle id="donut-segment-online" class="donut-segment" cx="70" cy="70" r="55" fill="none" stroke="#2ECC71" stroke-width="12" stroke-dasharray="345" stroke-dashoffset="345"></circle>
+                                    <circle id="donut-segment-offline" class="donut-segment" cx="70" cy="70" r="55" fill="none" stroke="#F1C40F" stroke-width="12" stroke-dasharray="345" stroke-dashoffset="345"></circle>
+                                </svg>
+                                <div class="donut-center-text">
+                                    <span class="donut-percent" id="donut-online-pct">0%</span>
+                                    <span class="donut-label">Online</span>
+                                </div>
+                            </div>
+                            <div class="donut-legend">
+                                <div class="legend-item"><span class="legend-dot dot-online"></span>Online</div>
+                                <div class="legend-item"><span class="legend-dot dot-offline"></span>Offline</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="recent-activity">
-                    <h3>Recent Updates</h3>
-                    <div class="activity-list" id="recent-list">
-                        <!-- Activity items -->
+                <div class="dashboard-bottom-grid">
+                    <!-- Bottom Left: OTA Update Tasks -->
+                    <div class="glass-card challenges-card">
+                        <div class="card-header">
+                            <h3>OTA Update Tasks</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="ota-tasks-list" class="challenges-list">
+                                <!-- Rendered dynamically by script.js -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Right: Weekly Activity Calendar & Report -->
+                    <div class="glass-card report-card">
+                        <div class="card-header">
+                            <h3>Weekly System Activity</h3>
+                        </div>
+                        <div class="card-body report-body">
+                            <div class="calendar-strip" id="calendar-strip">
+                                <!-- Calendar days mon-sun -->
+                            </div>
+                            <div class="report-stats">
+                                <div class="report-metric">
+                                    <span class="report-label">OTA SUCCESS RATE</span>
+                                    <span class="report-val">99.8%</span>
+                                </div>
+                                <div class="report-metric">
+                                    <span class="report-label">AVG TRANS. TIME</span>
+                                    <span class="report-val">4.2s</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
 
+            <!-- ===== FIRMWARE ===== -->
             <section id="versions-section" class="tab-content">
                 <div class="section-header">
                     <h2>Firmware Versions</h2>
-                    <button class="btn btn-primary" onclick="showUploadModal()">Upload New</button>
+                    <button class="btn btn-primary" onclick="showUploadModal()">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Upload New
+                    </button>
                 </div>
                 <div class="table-container">
                     <table id="versions-table">
                         <thead>
                             <tr>
                                 <th>Version</th>
+                                <th>File Size</th>
+                                <th>Release Notes</th>
                                 <th>Release Date</th>
                                 <th>Status</th>
-                                <th>Action</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
                     </table>
+                    <div id="versions-empty" class="empty-state" style="display:none;">
+                        <p>No firmware versions uploaded yet.</p>
+                    </div>
                 </div>
             </section>
 
+            <!-- ===== DEVICES ===== -->
             <section id="devices-section" class="tab-content">
                 <div class="section-header">
                     <h2>Device Management</h2>
+                    <span class="device-count" id="device-count-badge"></span>
                 </div>
                 <div class="table-container">
                     <table id="devices-table">
@@ -93,13 +194,18 @@
                             <tr>
                                 <th>Device Name</th>
                                 <th>IP Address</th>
-                                <th>Version</th>
+                                <th>Current Version</th>
+                                <th>Target Version</th>
                                 <th>Last Seen</th>
                                 <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
                     </table>
+                    <div id="devices-empty" class="empty-state" style="display:none;">
+                        <p>No devices connected yet. Devices will appear here when they check in.</p>
+                    </div>
                 </div>
             </section>
         </main>
@@ -108,11 +214,14 @@
     <!-- Upload Modal -->
     <div id="upload-modal" class="modal">
         <div class="modal-content">
-            <h3>Upload Firmware</h3>
+            <div class="modal-header">
+                <h3>Upload Firmware</h3>
+                <button class="modal-close" onclick="closeModal('upload-modal')">&times;</button>
+            </div>
             <form id="upload-form">
                 <div class="form-group">
-                    <label>Version Number (e.g. 1.4.3)</label>
-                    <input type="text" name="version" required placeholder="1.4.3">
+                    <label>Version Number</label>
+                    <input type="text" name="version" required placeholder="e.g. 1.5.0">
                 </div>
                 <div class="form-group">
                     <label>Firmware Binary (.bin)</label>
@@ -120,16 +229,76 @@
                 </div>
                 <div class="form-group">
                     <label>Release Notes</label>
-                    <textarea name="release_notes"></textarea>
+                    <textarea name="release_notes" placeholder="What's new in this version..."></textarea>
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('upload-modal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Upload</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <script src="/static/script.js"></script>
+    <!-- Edit Version Modal -->
+    <div id="edit-version-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Version</h3>
+                <button class="modal-close" onclick="closeModal('edit-version-modal')">&times;</button>
+            </div>
+            <form id="edit-version-form">
+                <input type="hidden" id="edit-version-id">
+                <div class="form-group">
+                    <label>Version String</label>
+                    <input type="text" id="edit-version-string" required>
+                </div>
+                <div class="form-group">
+                    <label>Release Notes</label>
+                    <textarea id="edit-version-notes"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-version-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Rename Device Modal -->
+    <div id="rename-device-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Rename Device</h3>
+                <button class="modal-close" onclick="closeModal('rename-device-modal')">&times;</button>
+            </div>
+            <form id="rename-device-form">
+                <input type="hidden" id="rename-device-id">
+                <div class="form-group">
+                    <label>Device Name</label>
+                    <input type="text" id="rename-device-name" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('rename-device-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3 id="confirm-title">Confirm Delete</h3>
+            </div>
+            <p id="confirm-message" class="confirm-text"></p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('confirm-modal')">Cancel</button>
+                <button class="btn btn-danger" id="confirm-action-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js?v=3"></script>
 </body>
 </html>

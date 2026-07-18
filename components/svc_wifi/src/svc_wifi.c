@@ -50,6 +50,9 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 #endif
   } else if (event_base == WIFI_EVENT &&
              event_id == WIFI_EVENT_STA_DISCONNECTED) {
+#if CONFIG_APP_LED_CONTROL
+    drv_led_set_state(DRV_LED_WIFI_FAIL);
+#endif
     if (s_reconnect) {
       s_consecutive_failures++;
       ESP_LOGW(TAG, "Wi-Fi connection failed (%lu/%d)", s_consecutive_failures, MAX_WIFI_CONN_RETRIES);
@@ -100,7 +103,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     }
 
 #if CONFIG_APP_LED_CONTROL
-    drv_led_set_state(DRV_LED_IDLE);
+    drv_led_set_state(DRV_LED_WIFI_SUCCESS);
 #endif
   }
 }
@@ -162,10 +165,16 @@ esp_err_t svc_wifi_start(void *pop_info) {
     } else {
       ESP_LOGE(TAG, "Failed to load credentials, starting provisioning");
       svc_wifi_prov_start();
+#if CONFIG_APP_LED_CONTROL
+      drv_led_set_state(DRV_LED_WIFI_PROV);
+#endif
     }
   } else {
     ESP_LOGI(TAG, "No WiFi credentials, starting SoftAP provisioning");
     svc_wifi_prov_start();
+#if CONFIG_APP_LED_CONTROL
+    drv_led_set_state(DRV_LED_WIFI_PROV);
+#endif
   }
 #else
   // BLE provisioning (Default fallback or explicitly selected)
@@ -184,7 +193,7 @@ esp_err_t svc_wifi_start(void *pop_info) {
     ESP_LOGI(TAG, "Starting provisioning");
 
 #if CONFIG_APP_LED_CONTROL
-    drv_led_set_state(DRV_LED_WIFI_CONN);
+    drv_led_set_state(DRV_LED_WIFI_PROV);
 #endif
 
     network_prov_security_t security = NETWORK_PROV_SECURITY_1;

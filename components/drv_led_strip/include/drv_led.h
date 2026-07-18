@@ -18,6 +18,8 @@ typedef enum {
   DRV_LED_STARTUP,
   DRV_LED_WIFI_PROV,
   DRV_LED_WIFI_CONN,
+  DRV_LED_WIFI_SUCCESS,
+  DRV_LED_WIFI_FAIL,
   DRV_LED_OTA,
   DRV_LED_IR_TX,
   DRV_LED_IR_LEARN,
@@ -81,6 +83,18 @@ esp_err_t drv_led_set_power(uint8_t lamp_id, uint8_t power); // power = 1/0
 esp_err_t drv_led_get_config(uint8_t lamp_id, uint8_t *power, uint8_t *r, uint8_t *g, uint8_t *b,
                              drv_led_effect_t *effect, uint8_t *brightness,
                              uint8_t *speed);
+
+/**
+ * @brief Begin a batch update - suppresses apply/bridge until commit.
+ *        Use this to group multiple set_* calls into a single hardware update.
+ */
+void drv_led_begin_update(uint8_t lamp_id);
+
+/**
+ * @brief Commit a batch update - apply once + bridge once.
+ *        Must be called after drv_led_begin_update() to flush changes.
+ */
+void drv_led_commit_update(uint8_t lamp_id);
 
 // Save and Load settings
 esp_err_t drv_led_save_settings(void);
