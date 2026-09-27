@@ -463,11 +463,11 @@ menu "Device Configuration"
 
         config APP_IR_TX_GPIO
             int "IR Transmitter GPIO"
-            default 4
+            default 7
 
         config APP_IR_RX_GPIO
             int "IR Receiver GPIO"
-            default 7
+            default 8
     endmenu
 
     config APP_BUTTON_GPIO

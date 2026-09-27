@@ -76,3 +76,13 @@ esp_err_t svc_nvs_load_custom_brands(cJSON **brands_array);
  * @return esp_err_t ESP_OK on success
  */
 esp_err_t svc_nvs_save_custom_brands(cJSON *brands_array);
+
+#include "nvs.h"
+
+/**
+ * @brief Get storage usage statistics of the NVS partition (IR-12)
+ *
+ * @param[out] out_stats Pointer to nvs_stats_t struct
+ * @return esp_err_t ESP_OK on success
+ */
+esp_err_t svc_nvs_get_storage_stats(nvs_stats_t *out_stats);

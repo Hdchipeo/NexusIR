@@ -1,0 +1,17 @@
+{
+  "name": "NexusIR ESP32-C3 (ESP RainMaker / Alexa / Google)",
+  "version": "1.5.8",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-C3",
+      "parts": [
+        { "path": "../firmware/esp32c3/android/bootloader.bin", "offset": 0 },
+        { "path": "../firmware/esp32c3/android/partition-table.bin", "offset": 32768 },
+        { "path": "../firmware/esp32c3/android/ota_data_initial.bin", "offset": 86016 },
+        { "path": "../firmware/esp32c3/android/nexus-ir.bin", "offset": 131072 },
+        { "path": "../firmware/esp32c3/android/storage.bin", "offset": 4063232 }
+      ]
+    }
+  ]
+}

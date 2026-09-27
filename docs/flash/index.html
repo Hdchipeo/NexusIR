@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusIR Web Flasher — Flash via Browser</title>
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --accent: #e6002c;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --success: #238636;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 680px;
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px;
+      box-shadow: 0 16px 36px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+    .logo {
+      width: 140px;
+      margin-bottom: 16px;
+      filter: drop-shadow(0 4px 12px rgba(230,0,44,0.3));
+    }
+    h1 { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+    p.subtitle { color: var(--text-muted); font-size: 15px; margin-bottom: 28px; line-height: 1.5; }
+    
+    .selector-box {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      justify-content: center;
+    }
+    .option-btn {
+      flex: 1;
+      padding: 14px 16px;
+      background: #21262d;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .option-btn.active {
+      border-color: var(--accent);
+      background: #2b1d24;
+      color: #ff6b81;
+    }
+    
+    .install-wrapper {
+      margin: 28px 0;
+      padding: 24px;
+      background: #0d1117;
+      border-radius: 12px;
+      border: 1px dashed var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .steps {
+      text-align: left;
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+    .steps ol { padding-left: 20px; }
+    .steps li { margin-bottom: 6px; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 12px;
+      border-radius: 6px;
+      background: #238636;
+      color: white;
+      margin-left: 6px;
+    }
+    .browser-notice {
+      margin-top: 16px;
+      font-size: 13px;
+      color: #8b949e;
+    }
+    .browser-notice strong { color: var(--text); }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <img src="../images/logo.png" alt="NexusIR" class="logo" />
+    <h1>NexusIR Web Flasher 🛸</h1>
+    <p class="subtitle">Install or update NexusIR firmware directly from your browser via Web Serial API. No development tools or drivers required!</p>
+
+    <div class="selector-box">
+      <button id="btn-ios" class="option-btn active" onclick="selectEcosystem('ios')">
+        🍎 Apple HomeKit (iOS)
+      </button>
+      <button id="btn-android" class="option-btn" onclick="selectEcosystem('android')">
+        🤖 ESP RainMaker (Android)
+      </button>
+    </div>
+
+    <div class="install-wrapper">
+      <div id="target-label" style="font-size: 14px; font-weight: 600; color: #58a6ff;">
+        Target: ESP32-C3 · Apple HomeKit Build (v1.5.8)
+      </div>
+      <esp-web-install-button id="install-btn" manifest="./manifest-ios.json">
+        <button slot="activate" style="padding: 12px 28px; background: #e6002c; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+          ⚡ Connect & Flash via Browser
+        </button>
+      </esp-web-install-button>
+    </div>
+
+    <div class="steps">
+      <h3 style="color: var(--text); font-size: 15px; margin-bottom: 8px;">📌 How to Flash:</h3>
+      <ol>
+        <li>Connect your <b>ESP32-C3</b> device to your computer using a USB-C data cable.</li>
+        <li>Select your preferred ecosystem above: <b>Apple HomeKit</b> or <b>ESP RainMaker</b>.</li>
+        <li>Click <b>Connect & Flash</b>, choose the corresponding Serial Port (e.g. <code>tty.usbserial-*</code> or <code>COM*</code>).</li>
+        <li>Select <b>Install NexusIR</b> & check <b>Erase Device</b> for clean setup.</li>
+      </ol>
+      <div class="browser-notice">
+        🌐 <strong>Supported Browsers:</strong> Google Chrome, Microsoft Edge, Opera on Windows, macOS, and Linux.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function selectEcosystem(eco) {
+      const btnIos = document.getElementById('btn-ios');
+      const btnAndroid = document.getElementById('btn-android');
+      const installBtn = document.getElementById('install-btn');
+      const targetLabel = document.getElementById('target-label');
+
+      if (eco === 'ios') {
+        btnIos.classList.add('active');
+        btnAndroid.classList.remove('active');
+        installBtn.setAttribute('manifest', './manifest-ios.json');
+        targetLabel.innerText = "Target: ESP32-C3 · Apple HomeKit Build (v1.5.8)";
+      } else {
+        btnAndroid.classList.add('active');
+        btnIos.classList.remove('active');
+        installBtn.setAttribute('manifest', './manifest-android.json');
+        targetLabel.innerText = "Target: ESP32-C3 · ESP RainMaker / Alexa / Google Build (v1.5.8)";
+      }
+    }
+  </script>
+
+</body>
+</html>

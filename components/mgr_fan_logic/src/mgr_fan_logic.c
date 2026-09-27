@@ -215,6 +215,8 @@ esp_err_t mgr_fan_send(void) {
 bool mgr_fan_is_configured(void) {
 #ifdef CONFIG_APP_ESPNOW_FAN_DISABLED
     return false;
+#elif defined(CONFIG_APP_ESPNOW_FAN_MASTER)
+    return true;
 #else
     const char *brand = g_is_custom_brand ? g_custom_brand_name : "Fan";
     if (mgr_ir_send_key_exists("F_", brand, "ON") ||

@@ -20,6 +20,8 @@
 #include "nvs_flash.h"
 #include "svc_log.h"
 #include "svc_ota.h"
+#include "esp_ota_ops.h"
+#include "esp_system.h"
 #include "svc_wifi.h"
 #include "sys_mem.h"
 #include <ctype.h>
@@ -476,12 +478,33 @@ static esp_err_t api_learn_stop_handler(httpd_req_t *req) {
 }
 
 static esp_err_t api_learn_status_handler(httpd_req_t *req) {
-  uint32_t count = 0;
-  bool learning = mgr_ir_get_learn_status(&count);
+  mgr_ir_session_info_t info = {0};
+  esp_err_t err = mgr_ir_get_session_info(&info);
+  if (err != ESP_OK) {
+    info.session_id = 0;
+    info.state = IR_STATE_IDLE;
+    info.symbol_count = 0;
+    info.is_truncated = false;
+  }
 
-  char resp[64];
-  snprintf(resp, sizeof(resp), "{\"learning\":%s, \"captured\":%" PRIu32 "}",
-           learning ? "true" : "false", count);
+  const char *state_str = "IDLE";
+  switch (info.state) {
+    case IR_STATE_ARMED: state_str = "ARMED"; break;
+    case IR_STATE_CAPTURED: state_str = "CAPTURED"; break;
+    case IR_STATE_TIMEOUT: state_str = "TIMEOUT"; break;
+    case IR_STATE_CANCELLED: state_str = "CANCELLED"; break;
+    case IR_STATE_ERROR: state_str = "ERROR"; break;
+    default: state_str = "IDLE"; break;
+  }
+
+  char resp[160];
+  snprintf(resp, sizeof(resp),
+           "{\"learning\":%s, \"captured\":%" PRIu32 ", \"status\":\"%s\", \"session_id\":%" PRIu32 ", \"truncated\":%s}",
+           (info.state == IR_STATE_ARMED) ? "true" : "false",
+           info.symbol_count,
+           state_str,
+           info.session_id,
+           info.is_truncated ? "true" : "false");
 
   httpd_resp_set_type(req, "application/json");
   httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
@@ -507,6 +530,8 @@ static esp_err_t api_matrix_save_handler(httpd_req_t *req) {
         ESP_LOGI(TAG, "API: Matrix Save Dev=%s, Index=%d", dev_id, index);
         
         if (mgr_ir_save_to_matrix(dev_id, index) == ESP_OK) {
+          mgr_ac_set_custom_brand(dev_id);
+          ESP_LOGI(TAG, "Auto-configured active AC brand to: %s", dev_id);
           httpd_resp_send(req, "Saved", HTTPD_RESP_USE_STRLEN);
         } else {
           httpd_resp_send_500(req);
@@ -580,8 +605,17 @@ static esp_err_t api_send_handler(httpd_req_t *req) {
       if (httpd_query_key_value(buf, "key", key_raw, sizeof(key_raw)) == ESP_OK) {
         url_decode(key, key_raw);
         ESP_LOGI(TAG, "API: Send Key %s", key);
-        mgr_ir_send_key(key);
-        httpd_resp_send(req, "Sent", HTTPD_RESP_USE_STRLEN);
+        esp_err_t err = mgr_ir_send_key(key);
+        if (err == ESP_OK) {
+          httpd_resp_send(req, "Sent", HTTPD_RESP_USE_STRLEN);
+        } else if (err == ESP_ERR_INVALID_STATE) {
+          httpd_resp_set_status(req, "409 Conflict");
+          httpd_resp_send(req, "Busy: Learning Active", HTTPD_RESP_USE_STRLEN);
+        } else if (err == ESP_ERR_NOT_FOUND) {
+          httpd_resp_send_404(req);
+        } else {
+          httpd_resp_send_500(req);
+        }
       }
     }
     free(buf);
@@ -590,6 +624,132 @@ static esp_err_t api_send_handler(httpd_req_t *req) {
   if (key[0] == 0) {
     httpd_resp_send_404(req);
   }
+  return ESP_OK;
+}
+
+static esp_err_t api_ir_export_handler(httpd_req_t *req) {
+  char *buf;
+  size_t buf_len = httpd_req_get_url_query_len(req) + 1;
+  char key[32] = {0};
+
+  if (buf_len > 1) {
+    buf = malloc(buf_len);
+    if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK) {
+      char key_raw[32] = {0};
+      if (httpd_query_key_value(buf, "key", key_raw, sizeof(key_raw)) == ESP_OK) {
+        url_decode(key, key_raw);
+        char *json_out = NULL;
+        esp_err_t err = mgr_ir_export_key_json(key, &json_out);
+        if (err == ESP_OK && json_out) {
+          httpd_resp_set_type(req, "application/json");
+          httpd_resp_send(req, json_out, HTTPD_RESP_USE_STRLEN);
+          free(json_out);
+          free(buf);
+          return ESP_OK;
+        } else if (err == ESP_ERR_NOT_FOUND) {
+          free(buf);
+          httpd_resp_send_404(req);
+          return ESP_OK;
+        }
+      }
+    }
+    free(buf);
+  }
+  httpd_resp_send_404(req);
+  return ESP_OK;
+}
+
+static esp_err_t api_ir_import_handler(httpd_req_t *req) {
+  char *buf;
+  size_t buf_len = httpd_req_get_url_query_len(req) + 1;
+  char key[32] = {0};
+
+  if (buf_len > 1) {
+    buf = malloc(buf_len);
+    if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK) {
+      char key_raw[32] = {0};
+      if (httpd_query_key_value(buf, "key", key_raw, sizeof(key_raw)) == ESP_OK) {
+        url_decode(key, key_raw);
+      }
+    }
+    free(buf);
+  }
+
+  if (key[0] == 0) {
+    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing key parameter");
+    return ESP_OK;
+  }
+
+  int total_len = req->content_len;
+  if (total_len <= 0 || total_len > 8192) {
+    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid content length");
+    return ESP_OK;
+  }
+
+  char *body = malloc(total_len + 1);
+  if (!body) {
+    httpd_resp_send_500(req);
+    return ESP_OK;
+  }
+
+  int received = 0;
+  while (received < total_len) {
+    int ret = httpd_req_recv(req, body + received, total_len - received);
+    if (ret <= 0) {
+      free(body);
+      httpd_resp_send_500(req);
+      return ESP_OK;
+    }
+    received += ret;
+  }
+  body[total_len] = '\0';
+
+  esp_err_t err = mgr_ir_import_key_json(key, body);
+  free(body);
+
+  if (err == ESP_OK) {
+    httpd_resp_send(req, "Imported", HTTPD_RESP_USE_STRLEN);
+  } else {
+    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Import validation failed");
+  }
+  return ESP_OK;
+}
+
+static esp_err_t api_ir_migrate_handler(httpd_req_t *req) {
+  size_t migrated = 0, skipped = 0, errors = 0;
+  mgr_ir_migrate_all(&migrated, &skipped, &errors);
+
+  char resp[128];
+  snprintf(resp, sizeof(resp),
+           "{\"migrated\":%zu, \"skipped\":%zu, \"errors\":%zu}",
+           migrated, skipped, errors);
+
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
+  return ESP_OK;
+}
+
+static esp_err_t api_ir_storage_handler(httpd_req_t *req) {
+  nvs_stats_t stats = {0};
+  esp_err_t err = svc_nvs_get_storage_stats(&stats);
+  if (err != ESP_OK) {
+    httpd_resp_send_500(req);
+    return ESP_OK;
+  }
+
+  // Estimate capacity: TV/Fan key ~ 4 NVS entries; AC Matrix key ~ 12 NVS entries
+  size_t est_ac = stats.free_entries / 12;
+  size_t est_tv = stats.free_entries / 4;
+
+  char resp[256];
+  snprintf(resp, sizeof(resp),
+           "{\"used_entries\":%zu,\"free_entries\":%zu,\"total_entries\":%zu,"
+           "\"namespace_count\":%zu,\"est_ac_keys\":%zu,\"est_tv_keys\":%zu}",
+           (size_t)stats.used_entries, (size_t)stats.free_entries, (size_t)stats.total_entries,
+           (size_t)stats.namespace_count, est_ac, est_tv);
+
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
   return ESP_OK;
 }
 
@@ -685,13 +845,86 @@ static esp_err_t api_ota_check_handler(httpd_req_t *req) {
 }
 
 static esp_err_t api_ota_start_handler(httpd_req_t *req) {
+  // 1. Direct Local Binary Upload (Drag-and-Drop OTA Flasher)
+  if (req->content_len > 0) {
+    ESP_LOGI(TAG, "Starting Local OTA update, binary size: %d bytes", req->content_len);
+
+    const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
+    if (!update_partition) {
+      ESP_LOGE(TAG, "No valid OTA update partition found");
+      httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "No OTA partition");
+      return ESP_FAIL;
+    }
+
+    esp_ota_handle_t ota_handle = 0;
+    esp_err_t err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &ota_handle);
+    if (err != ESP_OK) {
+      ESP_LOGE(TAG, "esp_ota_begin failed: %s", esp_err_to_name(err));
+      httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OTA Begin Failed");
+      return ESP_FAIL;
+    }
+
+    char *buf = malloc(1024);
+    if (!buf) {
+      esp_ota_abort(ota_handle);
+      httpd_resp_send_500(req);
+      return ESP_FAIL;
+    }
+
+    int remaining = req->content_len;
+    while (remaining > 0) {
+      int recv_len = httpd_req_recv(req, buf, (remaining > 1024) ? 1024 : remaining);
+      if (recv_len <= 0) {
+        if (recv_len == HTTPD_SOCK_ERR_TIMEOUT) {
+          continue; // Retry on timeout
+        }
+        ESP_LOGE(TAG, "HTTP receive error during OTA upload");
+        free(buf);
+        esp_ota_abort(ota_handle);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Receive Error");
+        return ESP_FAIL;
+      }
+
+      err = esp_ota_write(ota_handle, buf, recv_len);
+      if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_ota_write failed: %s", esp_err_to_name(err));
+        free(buf);
+        esp_ota_abort(ota_handle);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OTA Write Failed");
+        return ESP_FAIL;
+      }
+
+      remaining -= recv_len;
+    }
+    free(buf);
+
+    err = esp_ota_end(ota_handle);
+    if (err != ESP_OK) {
+      ESP_LOGE(TAG, "esp_ota_end failed: %s", esp_err_to_name(err));
+      httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OTA End Failed");
+      return ESP_FAIL;
+    }
+
+    err = esp_ota_set_boot_partition(update_partition);
+    if (err != ESP_OK) {
+      ESP_LOGE(TAG, "esp_ota_set_boot_partition failed: %s", esp_err_to_name(err));
+      httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Set Boot Failed");
+      return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "Local OTA Success! Rebooting into new firmware...");
+    httpd_resp_send(req, "OTA Success. Rebooting...", HTTPD_RESP_USE_STRLEN);
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    esp_restart();
+    return ESP_OK;
+  }
+
+  // 2. Fallback to Cloud/Remote URL OTA
   char url[256];
   snprintf(url, sizeof(url), "%s/lamp-ir-device.bin", CONFIG_OTA_SERVER_URL);
-
   ESP_LOGI(TAG, "Starting manual update from UI: %s", url);
 
-  // When triggering manually, we might not know the exact version unless
-  // checking first. For now, label it as "Manual Update" or similar.
   if (svc_ota_start(url) == ESP_OK) {
     httpd_resp_send(req, "Started", HTTPD_RESP_USE_STRLEN);
   } else {
@@ -933,6 +1166,13 @@ static esp_err_t api_brand_add_handler(httpd_req_t *req) {
   cJSON_AddItemToArray(brands, new_brand);
   
   svc_nvs_save_custom_brands(brands);
+  if (strcmp(type, "AC") == 0) {
+    mgr_ac_set_custom_brand(name);
+    ESP_LOGI(TAG, "Auto-configured active AC brand to: %s", name);
+  } else if (strcmp(type, "FAN") == 0) {
+    mgr_fan_set_custom_brand(name);
+    ESP_LOGI(TAG, "Auto-configured active Fan brand to: %s", name);
+  }
   update_rainmaker_brands();
   cJSON_Delete(brands);
 
@@ -985,6 +1225,19 @@ static esp_err_t api_brand_rename_handler(httpd_req_t *req) {
   }
 
   svc_nvs_save_custom_brands(brands);
+
+  // Sync renamed active brand in logic managers
+  const char *cur_ac = mgr_ac_get_custom_brand();
+  if (cur_ac && strcmp(old_name, cur_ac) == 0) {
+    mgr_ac_set_custom_brand(new_name);
+    ESP_LOGI(TAG, "Renamed active AC brand to: %s", new_name);
+  }
+  const char *cur_fan = mgr_fan_get_custom_brand();
+  if (cur_fan && strcmp(old_name, cur_fan) == 0) {
+    mgr_fan_set_custom_brand(new_name);
+    ESP_LOGI(TAG, "Renamed active Fan brand to: %s", new_name);
+  }
+
   update_rainmaker_brands();
   cJSON_Delete(brands);
 
@@ -1035,6 +1288,17 @@ static esp_err_t api_brand_delete_handler(httpd_req_t *req) {
   }
 
   svc_nvs_save_custom_brands(brands);
+
+  // Sync deleted active brand in logic managers
+  const char *cur_ac = mgr_ac_get_custom_brand();
+  if (cur_ac && strcmp(name, cur_ac) == 0) {
+    mgr_ac_set_brand(AC_BRAND_CUSTOM);
+  }
+  const char *cur_fan = mgr_fan_get_custom_brand();
+  if (cur_fan && strcmp(name, cur_fan) == 0) {
+    mgr_fan_set_brand(FAN_BRAND_GENERIC);
+  }
+
   update_rainmaker_brands();
   cJSON_Delete(brands);
 
@@ -1180,6 +1444,18 @@ static const httpd_uri_t delete_key = {.uri = "/api/ir/delete",
 static const httpd_uri_t rename_key = {.uri = "/api/ir/rename",
                                        .method = HTTP_POST,
                                        .handler = api_rename_handler};
+static const httpd_uri_t ir_export = {.uri = "/api/ir/export",
+                                      .method = HTTP_GET,
+                                      .handler = api_ir_export_handler};
+static const httpd_uri_t ir_import = {.uri = "/api/ir/import",
+                                      .method = HTTP_POST,
+                                      .handler = api_ir_import_handler};
+static const httpd_uri_t ir_migrate = {.uri = "/api/ir/migrate",
+                                       .method = HTTP_POST,
+                                       .handler = api_ir_migrate_handler};
+static const httpd_uri_t ir_storage = {.uri = "/api/ir/storage",
+                                       .method = HTTP_GET,
+                                       .handler = api_ir_storage_handler};
 
 static const httpd_uri_t wifi_config = {.uri = "/api/wifi/config",
                                         .method = HTTP_POST,
@@ -1285,6 +1561,10 @@ esp_err_t svc_web_start(void) {
     REG_URI(&send_key);
     REG_URI(&delete_key);
     REG_URI(&rename_key);
+    REG_URI(&ir_export);
+    REG_URI(&ir_import);
+    REG_URI(&ir_migrate);
+    REG_URI(&ir_storage);
 
 #if CONFIG_APP_OTA_ENABLE
     // OTA

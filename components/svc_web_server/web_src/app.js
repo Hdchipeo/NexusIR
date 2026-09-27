@@ -11,6 +11,7 @@ let state = {
 
 // Khởi tạo
 window.onload = () => {
+    setupOtaDropzone();
     switchTab(state.activeTab);
     fetchDevices();
     fetchWeather();
@@ -183,6 +184,8 @@ async function updateStates() {
 }
 
 async function togglePower(name, type) {
+    const dev = state.devices.find(d => d.name === name);
+    if (dev) state.currentControlDevice = dev;
     if (type === 'AC') {
         state.acState.power = !state.acState.power;
         await sendACUpdate();
@@ -412,10 +415,18 @@ function updateACModeUI() {
 }
 
 async function sendACUpdate() {
+    let payload = { ...state.acState };
+    const acDev = state.currentControlDevice && state.currentControlDevice.type === 'AC' 
+        ? state.currentControlDevice 
+        : state.devices.find(d => d.type === 'AC');
+    if (acDev) {
+        payload.is_custom = true;
+        payload.custom_brand_name = acDev.name;
+    }
     await fetch('/api/ac/control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(state.acState)
+        body: JSON.stringify(payload)
     });
     updateStates();
 }
@@ -439,10 +450,18 @@ function updateFanSpeedUI() {
 }
 
 async function sendFanUpdate() {
+    let payload = { ...state.fanState };
+    const fanDev = state.currentControlDevice && state.currentControlDevice.type === 'FAN' 
+        ? state.currentControlDevice 
+        : state.devices.find(d => d.type === 'FAN');
+    if (fanDev) {
+        payload.is_custom = true;
+        payload.custom_brand_name = fanDev.name;
+    }
     await fetch('/api/fan/control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(state.fanState)
+        body: JSON.stringify(payload)
     });
     updateStates();
 }
@@ -742,4 +761,121 @@ function stopWizard() {
     state.currentWizard = null; 
     closeModal(); 
     fetch('/api/learn/stop', { method: 'POST' }).catch(() => {});
+}
+
+// --- Quản lý Nạp Firmware OTA Cục Bộ ---
+let selectedOtaFile = null;
+
+function setupOtaDropzone() {
+    const dropzone = document.getElementById('ota-dropzone');
+    const fileInput = document.getElementById('ota-file-input');
+    if (!dropzone || !fileInput) return;
+
+    dropzone.onclick = () => fileInput.click();
+
+    dropzone.ondragover = (e) => {
+        e.preventDefault();
+        dropzone.style.background = 'var(--bg-tertiary)';
+    };
+
+    dropzone.ondragleave = () => {
+        dropzone.style.background = 'transparent';
+    };
+
+    dropzone.ondrop = (e) => {
+        e.preventDefault();
+        dropzone.style.background = 'transparent';
+        if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+            validateAndSetOtaFile(e.dataTransfer.files[0]);
+        }
+    };
+}
+
+function handleOtaFileSelect(event) {
+    if (event.target.files && event.target.files.length > 0) {
+        validateAndSetOtaFile(event.target.files[0]);
+    }
+}
+
+function validateAndSetOtaFile(file) {
+    if (!file.name.endsWith('.bin')) {
+        alert('Vui lòng chọn tệp firmware có định dạng .bin!');
+        return;
+    }
+    selectedOtaFile = file;
+    const filenameEl = document.getElementById('ota-filename');
+    const uploadBtn = document.getElementById('ota-upload-btn');
+    if (filenameEl) {
+        filenameEl.innerText = `${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+    }
+    if (uploadBtn) {
+        uploadBtn.style.display = 'block';
+    }
+}
+
+function startLocalOtaUpload() {
+    if (!selectedOtaFile) return;
+
+    const uploadBtn = document.getElementById('ota-upload-btn');
+    const progressContainer = document.getElementById('ota-progress-container');
+    const progressBar = document.getElementById('ota-progress-bar');
+    const statusText = document.getElementById('ota-status-text');
+    const percentText = document.getElementById('ota-percent-text');
+
+    if (uploadBtn) {
+        uploadBtn.disabled = true;
+        uploadBtn.style.opacity = '0.6';
+    }
+    if (progressContainer) {
+        progressContainer.style.display = 'block';
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/ota/start', true);
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+
+    xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            if (progressBar) progressBar.style.width = percent + '%';
+            if (percentText) percentText.innerText = percent + '%';
+            if (statusText) {
+                if (percent < 100) {
+                    statusText.innerText = `Đang tải lên (${(e.loaded / 1024 / 1024).toFixed(2)} MB)...`;
+                } else {
+                    statusText.innerText = 'Đang ghi Flash và xác thực...';
+                }
+            }
+        }
+    };
+
+    xhr.onload = () => {
+        if (xhr.status === 200) {
+            if (progressBar) progressBar.style.background = 'var(--success)';
+            if (statusText) statusText.innerText = 'Thành công! Đang khởi động lại thiết bị...';
+            if (percentText) percentText.innerText = '100%';
+            setTimeout(() => {
+                alert('Firmware đã được nạp thành công! Thiết bị đang khởi động lại. Trang web sẽ tự động kết nối lại sau 10 giây.');
+                setTimeout(() => location.reload(), 10000);
+            }, 1000);
+        } else {
+            if (progressBar) progressBar.style.background = 'var(--danger)';
+            if (statusText) statusText.innerText = `Thất bại: ${xhr.responseText || 'Lỗi ghi firmware'}`;
+            if (uploadBtn) {
+                uploadBtn.disabled = false;
+                uploadBtn.style.opacity = '1';
+            }
+        }
+    };
+
+    xhr.onerror = () => {
+        if (progressBar) progressBar.style.background = 'var(--danger)';
+        if (statusText) statusText.innerText = 'Mất kết nối tới thiết bị trong quá trình nạp!';
+        if (uploadBtn) {
+            uploadBtn.disabled = false;
+            uploadBtn.style.opacity = '1';
+        }
+    };
+
+    xhr.send(selectedOtaFile);
 }

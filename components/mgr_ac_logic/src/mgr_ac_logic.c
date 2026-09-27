@@ -1,3 +1,4 @@
+#include "sdkconfig.h"
 #include "mgr_ac_logic.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -11,6 +12,8 @@
 
 #include "drv_ir_rmt.h"
 #include "esp_err.h"
+#include "svc_nvs.h"
+#include "cJSON.h"
 
 static const char *TAG = "mgr_ac_logic";
 
@@ -43,43 +46,64 @@ static ir_ac_state_t g_last_sent_state = {
 static esp_err_t load_state_from_nvs(void) {
   nvs_handle_t nvs;
   esp_err_t err = nvs_open(AC_NVS_NAMESPACE, NVS_READONLY, &nvs);
-  if (err != ESP_OK) {
-    ESP_LOGW(TAG, "NVS namespace not found, using defaults");
-    return err;
-  }
-
-  // Load brand
-  uint8_t brand = 0;
-  err = nvs_get_u8(nvs, AC_KEY_BRAND, &brand);
-  if (err == ESP_OK && brand < AC_BRAND_MAX) {
-    g_ac_brand = (ac_brand_t)brand;
-    ESP_LOGI(TAG, "Loaded brand: %d", brand);
-  }
-
-  // Load custom brand flag
-  uint8_t is_custom = 0;
-  if (nvs_get_u8(nvs, AC_KEY_IS_CUSTOM, &is_custom) == ESP_OK) {
-    g_is_custom_brand = (is_custom != 0);
-  }
-
-  // Load custom brand name
-  if (g_is_custom_brand) {
-    size_t len = sizeof(g_custom_brand_name);
-    nvs_get_str(nvs, AC_KEY_CUSTOM_NAME, g_custom_brand_name, &len);
-    ESP_LOGI(TAG, "Loaded custom brand: %s", g_custom_brand_name);
-  }
-
-  // Load AC state
-  size_t state_len = sizeof(ir_ac_state_t);
-  err = nvs_get_blob(nvs, AC_KEY_STATE, &g_ac_state, &state_len);
   if (err == ESP_OK) {
-    ESP_LOGI(TAG, "Loaded state: P=%d, M=%d, T=%d", g_ac_state.power,
-             g_ac_state.mode, g_ac_state.temp);
-    // Sync last sent state to loaded state to avoid initial burst of commands
-    memcpy(&g_last_sent_state, &g_ac_state, sizeof(ir_ac_state_t));
+    // Load brand
+    uint8_t brand = 0;
+    err = nvs_get_u8(nvs, AC_KEY_BRAND, &brand);
+    if (err == ESP_OK && brand < AC_BRAND_MAX) {
+      g_ac_brand = (ac_brand_t)brand;
+      ESP_LOGI(TAG, "Loaded brand: %d", brand);
+    }
+
+    // Load custom brand flag
+    uint8_t is_custom = 0;
+    if (nvs_get_u8(nvs, AC_KEY_IS_CUSTOM, &is_custom) == ESP_OK) {
+      g_is_custom_brand = (is_custom != 0);
+    }
+
+    // Load custom brand name
+    if (g_is_custom_brand) {
+      size_t len = sizeof(g_custom_brand_name);
+      nvs_get_str(nvs, AC_KEY_CUSTOM_NAME, g_custom_brand_name, &len);
+      ESP_LOGI(TAG, "Loaded custom brand: %s", g_custom_brand_name);
+    }
+
+    // Load AC state
+    size_t state_len = sizeof(ir_ac_state_t);
+    err = nvs_get_blob(nvs, AC_KEY_STATE, &g_ac_state, &state_len);
+    if (err == ESP_OK) {
+      ESP_LOGI(TAG, "Loaded state: P=%d, M=%d, T=%d", g_ac_state.power,
+               g_ac_state.mode, g_ac_state.temp);
+      // Sync last sent state to loaded state to avoid initial burst of commands
+      memcpy(&g_last_sent_state, &g_ac_state, sizeof(ir_ac_state_t));
+    }
+
+    nvs_close(nvs);
+  } else {
+    ESP_LOGW(TAG, "NVS namespace not found, checking defaults");
   }
 
-  nvs_close(nvs);
+  // Auto-recovery: If no custom brand loaded, check custom_brands in storage
+  if (!g_is_custom_brand || strlen(g_custom_brand_name) == 0) {
+    cJSON *brands = NULL;
+    if (svc_nvs_load_custom_brands(&brands) == ESP_OK && brands) {
+      cJSON *item = NULL;
+      cJSON_ArrayForEach(item, brands) {
+        cJSON *type_item = cJSON_GetObjectItem(item, "type");
+        cJSON *name_item = cJSON_GetObjectItem(item, "name");
+        if (type_item && cJSON_IsString(type_item) && strcmp(type_item->valuestring, "AC") == 0 &&
+            name_item && cJSON_IsString(name_item)) {
+          strncpy(g_custom_brand_name, name_item->valuestring, sizeof(g_custom_brand_name) - 1);
+          g_custom_brand_name[sizeof(g_custom_brand_name) - 1] = '\0';
+          g_is_custom_brand = true;
+          ESP_LOGI(TAG, "Auto-recovered active AC brand from custom_brands: '%s'", g_custom_brand_name);
+          break;
+        }
+      }
+      cJSON_Delete(brands);
+    }
+  }
+
   return ESP_OK;
 }
 
@@ -115,7 +139,7 @@ static esp_err_t save_state_to_nvs(void) {
   return err;
 }
 
-static void ac_espnow_handler(const ir_ac_state_t *state, ac_brand_t brand,
+__attribute__((unused)) static void ac_espnow_handler(const ir_ac_state_t *state, ac_brand_t brand,
                               const char *custom_name) {
   ESP_LOGI(TAG, "Syncing AC state from ESP-NOW...");
   mgr_ac_set_state(state);
@@ -272,6 +296,8 @@ esp_err_t mgr_ac_send(void) {
 bool mgr_ac_is_configured(void) {
 #ifdef CONFIG_APP_ESPNOW_AC_DISABLED
   return false;
+#elif defined(CONFIG_APP_ESPNOW_AC_MASTER)
+  return true;
 #else
   const char *dev_name = g_is_custom_brand ? g_custom_brand_name : "AC";
   if (mgr_ir_matrix_exists(dev_name)) {

@@ -7,6 +7,8 @@ managed_components/
 dependencies.lock
 dist/
 *.bin
+!firmware/**/*.bin
+!docs/firmware/**/*.bin
 *.elf
 *.map
 *.hex
@@ -22,3 +24,4 @@ ota_server/uploads/
 .DS_Store
 **/.DS_Store
 
+test_app/.cache/

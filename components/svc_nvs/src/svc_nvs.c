@@ -167,3 +167,10 @@ esp_err_t svc_nvs_save_custom_brands(cJSON *brands_array) {
   nvs_close(nvs);
   return err;
 }
+
+esp_err_t svc_nvs_get_storage_stats(nvs_stats_t *out_stats) {
+  if (!out_stats) {
+    return ESP_ERR_INVALID_ARG;
+  }
+  return nvs_get_stats(NVS_DEFAULT_PART_NAME, out_stats);
+}

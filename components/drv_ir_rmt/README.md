@@ -1,52 +1,43 @@
 # Component: IR RMT Driver (drv_ir_rmt)
 
 ## 1. Tổng quan (Overview)
-Component này là lớp trừu tượng phần cứng (HAL) để điều khiển ngoại vi RMT (Remote Control Peripheral) của ESP32. Nhiệm vụ chính là khởi tạo và truyền các xung hồng ngoại (IR) thô hoặc nhận tín hiệu IR từ mắt thu.
+Component `drv_ir_rmt` đóng vai trò là Lớp Trừu tượng Phần cứng (HAL) thuần túy cho ngoại vi RMT (Remote Control Peripheral) trên ESP-IDF 5.x. Driver chịu trách nhiệm sở hữu và quản lý toàn bộ vòng đời của kênh truyền TX và kênh nhận RX, đảm bảo hệ thống không bị crash hoặc panics khi phần cứng gặp sự cố trong môi trường vận hành 24/7.
 
 ## 2. Phần cứng (Hardware Setup)
-Mặc định, component sử dụng các chân GPIO sau (cấu hình trong `menuconfig` -> `Device Configuration` -> `IR Hardware`):
 
-| Chức năng      | Chân GPIO mặc định | Ghi chú                          |
-|----------------|--------------------|----------------------------------|
-| IR TX Pin      | `GPIO 4`           | Nối với chân Data của LED hồng ngoại qua transistor |
-| IR RX Pin      | `GPIO 7`           | Nối với chân Out của mắt thu hồng ngoại (e.g. TSOP38238) |
+| Chức năng | Chân GPIO mặc định | Đặc tả cấu hình |
+| :--- | :--- | :--- |
+| **IR TX Pin** | `GPIO 4` | Nối tầng lái Transistor / MOSFET phát LED IR. Resolution: 1 MHz. Mem block: 64 symbols. |
+| **IR RX Pin** | `GPIO 7` | Nối mắt thu giải điều chế IR (e.g. TSOP38238). Cấu hình nội bộ PULLUP, Invert Level. |
 
-## 3. Phụ thuộc (Dependencies)
-- `driver/rmt.h`: Driver RMT của ESP-IDF.
-- `ir_types.h`: Chứa các định nghĩa struct và enum dùng chung cho IR.
+## 3. Các tính năng cốt lõi (Core Features)
 
-## 4. Cấu hình (Configuration)
-Cấu hình qua `idf.py menuconfig`:
-- `CONFIG_APP_IR_TX_GPIO`: Chân phát IR.
-- `CONFIG_APP_IR_RX_GPIO`: Chân thu IR.
+1. **Phân tách trách nhiệm hoàn toàn (Separation of Concerns):**
+   - Tầng ứng dụng (`mgr_ir_protocols`) không bao giờ trực tiếp thao tác thanh ghi hoặc API cấp thấp của ESP-IDF RMT.
+   - Toàn bộ kênh TX, RX, Encoder và ISR callback đều được đóng gói bên trong driver này.
 
-## 5. Hướng dẫn sử dụng (Usage Example)
+2. **Cấu hình Sóng mang Động (Dynamic Carrier Frequency - IR-17):**
+   - Hỗ trợ thay đổi tần số điều chế (10,000 Hz – 60,000 Hz, ví dụ 36kHz, 38kHz, 40kHz, 56kHz) và duty cycle runtime qua hàm `ir_engine_set_carrier()`.
+   - Có cơ chế kiểm tra cache: Nếu tần số và duty cycle yêu cầu trùng với cấu hình hiện tại, driver bỏ qua việc re-apply để tránh overhead.
 
-```c
-#include "drv_ir_rmt.h"
+3. **An toàn khi Vận hành 24/7 (Fail-Safe Operation):**
+   - **Loại bỏ hoàn toàn `ESP_ERROR_CHECK()`:** Mọi lỗi phần cứng đều được ghi log chi tiết và trả về mã `esp_err_t` thay vì làm reboot chip.
+   - **Timeout an toàn 3 giây khi phát:** Thay thế chờ vô tận `-1` bằng `rmt_tx_wait_all_done(..., pdMS_TO_TICKS(3000))` để bảo vệ hệ thống không bị treo vĩnh viễn nếu ngoại vi RMT gặp sự cố.
 
-void app_main(void) {
-    // 1. Cấu hình engine
-    ir_engine_config_t config = {
-        .gpio_num = 4,
-        .resolution_hz = 1000000 // 1MHz = 1us resolution
-    };
-    ir_engine_init(&config);
+## 4. API chính (Main HAL APIs)
 
-    // 2. Gửi dữ liệu raw (rmt_symbol_word_t)
-    // rmt_symbol_word_t items[] = { ... };
-    // ir_engine_send_raw(items, count);
-}
-```
+### TX APIs
+- `esp_err_t ir_engine_init(const ir_engine_config_t *config);`
+  Khởi tạo RMT TX channel và gán copy encoder.
+- `esp_err_t ir_engine_set_carrier(uint32_t freq_hz, float duty_cycle);`
+  Cập nhật tần số sóng mang và duty cycle động.
+- `esp_err_t ir_engine_send_raw(const void *symbols, size_t count);`
+  Truyền chuỗi ký hiệu RMT ra LED phát (chờ truyền xong tối đa 3 giây).
 
-## 6. API chính (Main API)
-
-### `esp_err_t ir_engine_init(const ir_engine_config_t *config)`
-Khởi tạo ngoại vi RMT cho mục đích phát/thu IR.
-- **Param:** `config` - Chứa GPIO và độ phân giải clock.
-- **Return:** `ESP_OK` nếu thành công.
-
-### `esp_err_t ir_engine_send_raw(const void *symbols, size_t count)`
-Gửi mảng các ký hiệu RMT ra chân TX. Hàm này sẽ đợi cho đến khi việc truyền hoàn tất (blocking).
-- **Param:** `symbols` - Con trỏ tới mảng `rmt_symbol_word_t`.
-- **Param:** `count` - Số lượng phần tử trong mảng.
+### RX APIs
+- `esp_err_t ir_engine_rx_init(const ir_rx_engine_config_t *config);`
+  Khởi tạo RMT RX channel, thiết lập chân GPIO pullup và đăng ký ISR callback.
+- `esp_err_t ir_engine_rx_start(void *buffer, size_t buffer_size_bytes);`
+  Kích hoạt thu xung vào buffer được chỉ định (tự động bật enable channel nếu đang tắt).
+- `esp_err_t ir_engine_rx_stop(void);`
+  Tạm dừng / ngắt chế độ thu của kênh RX.

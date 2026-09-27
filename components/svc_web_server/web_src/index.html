@@ -74,6 +74,31 @@
                 </div>
             </div>
 
+                        <h3 style="margin-top:20px;">Cập nhật Firmware (OTA Cục Bộ)</h3>
+            <div class="card bento-full" style="margin-bottom:15px; cursor: default; padding: 18px;">
+                <div class="card-label">Nâng cấp Firmware (.bin)</div>
+                <div id="ota-dropzone" style="border: 2px dashed var(--accent); border-radius: 14px; padding: 22px; text-align: center; margin-top: 12px; cursor: pointer; transition: all 0.2s ease;">
+                    <i data-lucide="upload-cloud" style="width: 32px; height: 32px; color: var(--accent); margin-bottom: 6px;"></i>
+                    <div id="ota-filename" style="font-size: 14px; font-weight: 600;">Kéo & Thả file .bin vào đây</div>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">hoặc bấm để chọn tệp từ máy tính</div>
+                    <input type="file" id="ota-file-input" accept=".bin" style="display: none;" onchange="handleOtaFileSelect(event)">
+                </div>
+
+                <div id="ota-progress-container" style="display: none; margin-top: 16px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+                        <span id="ota-status-text">Đang tải lên...</span>
+                        <span id="ota-percent-text">0%</span>
+                    </div>
+                    <div style="width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                        <div id="ota-progress-bar" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.2s ease;"></div>
+                    </div>
+                </div>
+
+                <button id="ota-upload-btn" class="btn" style="width: 100%; margin-top: 16px; background: var(--accent); color: white; display: none;" onclick="startLocalOtaUpload()">
+                    Bắt đầu Nạp Firmware
+                </button>
+            </div>
+
             <div class="btn-group" style="margin-top:20px">
                 <button class="btn btn-danger" style="width:100%" onclick="restartHub()">Khởi động lại Hub</button>
             </div>
