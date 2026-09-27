@@ -107,14 +107,14 @@ function renderSetup() {
         item.onclick = () => manageDevice(dev);
         
         item.innerHTML = `
-            <div style="background:var(--bg-tertiary); padding:12px; border-radius:12px">
-                <i data-lucide="${icon}"></i>
+            <div class="device-icon-wrap">
+                <i data-lucide="${icon}" style="width:20px;height:20px;"></i>
             </div>
             <div class="device-info">
                 <div class="device-name">${dev.name}</div>
                 <div class="device-type">${dev.type} • Tùy chỉnh</div>
             </div>
-            <i data-lucide="chevron-right" style="color:var(--text-secondary)"></i>
+            <i data-lucide="chevron-right" style="color:var(--text-secondary); width:18px; height:18px;"></i>
         `;
         container.appendChild(item);
     });
@@ -409,9 +409,12 @@ async function setACMode(mode) {
 }
 
 function updateACModeUI() {
-    document.querySelectorAll('.mode-btn').forEach(b => b.style.background = 'var(--bg-secondary)');
+    document.querySelectorAll('.mode-btn').forEach(b => {
+        b.classList.remove('active');
+        b.style.background = '';
+    });
     const activeMode = document.getElementById(`ac-mode-${state.acState.mode}`);
-    if (activeMode) activeMode.style.background = 'var(--bg-tertiary)';
+    if (activeMode) activeMode.classList.add('active');
 }
 
 async function sendACUpdate() {
@@ -484,7 +487,12 @@ function renderNodes() {
     state.nodes.forEach(mac => {
         const item = document.createElement('div');
         item.className = 'list-item';
-        item.innerHTML = `<span>${mac}</span><button class="btn-danger" style="background:none; border:none" onclick="removeNode('${mac}')"><i data-lucide="trash-2" size="16"></i></button>`;
+        item.innerHTML = `
+            <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:14px;">${mac}</span>
+            <button type="button" class="btn-circle" style="width:30px; height:30px; background:var(--danger-tinted); color:var(--danger); border:none;" onclick="removeNode('${mac}')">
+                <i data-lucide="trash-2" style="width:15px; height:15px;"></i>
+            </button>
+        `;
         list.appendChild(item);
     });
     refreshIcons();
