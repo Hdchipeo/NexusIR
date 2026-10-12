@@ -16,7 +16,7 @@
 
 #define TAG "mgr_ir_matrix"
 #define MAX_MATRIX_ENTRIES 16
-#define MAX_IR_SYMBOLS 600
+#define MAX_IR_SYMBOLS 1200
 
 static SemaphoreHandle_t s_matrix_mutex = NULL;
 
@@ -93,7 +93,8 @@ esp_err_t mgr_ir_save_to_matrix(const char *dev_id, int index) {
     }
 
     // 3. Serialize into V1 format with CRC32
-    // AC commands should NOT repeat (repeat_count = 0)
+    // AC commands from Matrix may need repeating (e.g. Panasonic uses repeat_count=0 because the repeat is captured RAW)
+    // Here we save with repeat_count = 0 but the RAW data can be up to 1200 symbols to cover the repeated parts
     uint8_t flags = is_truncated ? IR_FLAG_TRUNCATED : IR_FLAG_NONE;
     uint8_t *v1_record = NULL;
     size_t record_size = 0;
