@@ -208,7 +208,7 @@ extern "C" esp_err_t ir_engine_rx_start(void *buffer, size_t buffer_size_bytes) 
 
   rmt_receive_config_t rcfg = {};
   rcfg.signal_range_min_ns = 1250;
-  rcfg.signal_range_max_ns = 30000000;
+  rcfg.signal_range_max_ns = 60000000; // 60ms gap support (for Panasonic/Daikin)
   return rmt_receive(g_rx_channel, buffer, buffer_size_bytes, &rcfg);
 }
 

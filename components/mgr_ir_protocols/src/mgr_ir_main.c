@@ -45,7 +45,7 @@
 
 #define RMT_RESOLUTION_HZ 1000000 // 1MHz, 1 tick = 1us
 #define APP_IR_MIN_SYMBOLS 20     // Minimum symbols to be considered valid IR
-#define MAX_IR_SYMBOLS 600        // Maximum RMT symbol words (~1200 edges)
+#define MAX_IR_SYMBOLS 1200       // Maximum RMT symbol words (~2400 edges) to support long AC commands (like Panasonic)
 #define IR_QUEUE_DEPTH 10
 #define DEFAULT_LEARN_TIMEOUT_MS 15000
 
